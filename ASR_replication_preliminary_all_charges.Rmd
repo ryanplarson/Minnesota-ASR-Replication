@@ -1,0 +1,325 @@
+---
+title: "ASR Replication Preliminary - All Charges"
+author: "Ryan Larson - UMN"
+date: "`r format(Sys.time(), '%m/%d/%Y')`"
+output: pdf_document
+fontsize: 11pt
+editor_options: 
+  chunk_output_type: console
+---
+
+This analysis represents a preliminary attempt to replicate and extend the Harris et. al. ASR paper. The Minnesota data is situated at the case level from 2010-2015.  The full data series extends back to 2004, but VIBES data in the two most populous MN counties, Hennepin and Ramsey, are missing and inconsistent until 2010. Additionally, while data at the conviction level would be more comparable, we do not have data at the conviction level for much of the VIBES data. Parts I and II consist of sets of mixed models that intend to replicate the models in the paper as closely as possible using the Minnesota data. This analysis uses the full sample (petty misdemeanor, misdemenor, gross misdemeanor, felony). We also include an extention set of mixed models to Native American populations, with hypothesized interactions with alcohol-related and hunting and fisheries violations to examine if the courtesty stigma and steretype congruence effects found in the Black and Latino models extend to Native American populations.  
+
+
+```{r, warning=F, include=F, message=F}
+##########################################
+# Multi-State Study of Monetary Sanctions
+# Ryan Larson, RA, UMN
+##########################################
+
+#TO DO
+#model with all interactions
+#add in other covariates(e.g., sentence), make different models
+#make more complex crim history var
+#L2 poverty - will make from CPS?
+#dynamic level-2 covariates?
+#county fixed effects - make sure level-2 is time varying
+
+
+#packages
+library(readr)
+library(dplyr)
+library(ggplot2)
+library(lme4)
+library(lmerTest)
+library(stargazer)
+library(car)
+
+#load data - constructed from MCAO .txt files
+monsanc <- read_csv("~/MonSanc/monsanc.csv") 
+
+#recoding and filtering
+monsanc.short <- monsanc %>%
+  mutate(total_ff = total_ff*adj, #adjust dollars to Jan. 2018
+         total_ff_stand = scale(total_ff),
+         total_ff_log = log((total_ff+1)*adj), #log+1 DV
+         min_perc = (min_pop/total_pop)*100,
+         black_perc = (black_pop/total_pop)*100,
+         hisp_perc = (hisp_pop/total_pop)*100, 
+         na_perc = (na_pop/total_pop)*100) %>%
+  filter(file_year >= 2010) #restricting to cases started from 2010-2015
+
+#make factors into binary indicators to match analyses/tables from paper
+monsanc.short <- monsanc.short %>% 
+  mutate(charge_degree = ifelse(charge_degree=="converted"|charge_degree=="other", NA, charge_degree),
+         felony = ifelse(charge_degree=="felony", 1, 0), 
+         gross.mis = ifelse(charge_degree=="gross misdemeanor", 1, 0),
+         mis = ifelse(charge_degree=="misdemeanor", 1, 0),
+         petty.mis = ifelse(charge_degree=="petty misdemeanor", 1, 0),
+         white = ifelse(race.squish=="white", 1, 0),
+         asian = ifelse(race.squish=="asian", 1, 0),
+         black = ifelse(race.squish=="black", 1, 0),
+         hispanic = ifelse(race.squish=="hispanic", 1, 0),
+         nativeam = ifelse(race.squish=="nat. am.", 1, 0),
+         other.race = ifelse(race.squish=="other", 1, 0),
+         violent = ifelse(charge_offense=="violent", 1, 0),
+         alcohol.dui = ifelse(charge_offense=="alcohol/dui", 1, 0),
+         drug = ifelse(charge_offense=="drug", 1, 0),
+         hunt.fish = ifelse(charge_offense=="hunt/fish", 1, 0),
+         other.offense = ifelse(charge_offense=="other", 1, 0),
+         male = ifelse(gender=="M", 1,0)) %>%
+  filter(age >= 15) #filtering cases with likely error ages (n=620)
+```
+
+ A few differences are of note: "SRA score" and "offender score", or comparable measures, are not redily available in the MCAO data. We decided to preliminarily use the number of prior offenses as a proxy for "offender score" and the degree of charge (e.g., gross misdemeanor) as an indicator of offense severity akin to "SRA score". Additionally, we use a more expansive offense type categorization for our Native American extentions, including both alcohol-related and hunting and fisheries violations in addition to violent and drug indicators. Hunting and fisheries violations were not included in the felony level analyses, as no felony-level hunting or fisheries violations were documented for Native American defendants, which does not allow the estimation of that specific interaction.  
+
+## Distribution of Fines and Fees
+
+```{r, message=F, warning=F, echo=F}
+
+ggplot(monsanc.short[monsanc.short$total_ff<1000,], aes(x=total_ff)) + 
+  geom_histogram(colour="black", fill="white") +
+  labs(title = "Distribution of Fine and Fee Amount < $1000", x = "Total Order ($)", y = "Frequency",
+       caption = "Note: Adjusted to Jan. 2018 dollars")+
+  theme_minimal()+
+  geom_vline(aes(xintercept = mean(total_ff, na.rm = T)), color="blue", linetype="dashed")
+
+```
+\pagebreak
+
+## Descriptive Statistics
+
+```{r, echo=F, results='asis'}
+stargazer(as.data.frame(monsanc.short[,c(23,53,104,103,102,101,55,116,105,106,107,108,109,110,52,111,
+                                         112,113,114,115,97,80,94)]), 
+          type="latex", style="asr", title="Descriptive Statistics - All Charges",
+          summary=T, covariate.labels=c("Total Fine/Fee", "Priors","Petty Misdem.","Misdem.", 
+                                        "Gross Misdem.", "Felony", "Age", 
+                                        "Male", "White","Asian", "Black", 
+                                        "Hispanic", "Native Am.", "Other Race", "Trial", 
+                                        "Violent","Alcohol/DUI", "Drug", "Hunt/Fish", 
+                                        "Other Offense", "Percent Minority", 
+                                        "Percent Vote Republican", "Percent Law and Justice"), header = F)
+```
+
+\pagebreak
+
+## Bivariate Correlations
+
+```{r, include=F}
+corr<-round(cor(monsanc.short[,c(23,53,104,103,102,101,55,116,105,106,
+                                 107,108,109,110,52,111,
+                                 112,113,114,115,97,80,94)], use="pairwise.complete.obs", 
+                method="pearson" ),2)
+corr[upper.tri(corr)] <-""
+upper <- as.matrix(corr)
+rownames(upper) <- c("Total Fine/Fee", "Priors","Petty Misdem.","Misdem.", 
+                     "Gross Misdem.", "Felony", "Age", 
+                     "Male", "White","Asian", "Black", 
+                     "Hispanic", "Native Am.", "Other Race", "Trial", 
+                     "Violent","Alcohol/DUI", "Drug", "Hunt/Fish", 
+                     "Other Offense", "Percent Minority", 
+                     "Percent Vote Republican", "Percent Law and Justice")
+
+```
+
+
+```{r, results='asis', echo=F}
+stargazer(upper, header=F, title="Pairwise Correlations", font.size="small", column.sep.width = "0.15pt",
+          single.row=TRUE,covariate.labels=c(as.character(paste(c("Variable",1:23)))))
+```
+
+\pagebreak
+
+
+## Table 3 Replication 
+
+```{r, include=F}
+m3 <- lmer(total_ff_log ~ priors+petty.mis+mis+gross.mis+log(age)+male+black+hispanic+asian+nativeam+
+             other.race+trial_flag+
+             drug+alcohol.dui+hunt.fish+other.offense+
+             min_perc+repubvote+lecperc+(1|filed_county), REML = F, data = monsanc.short)
+
+class(m3) <- "lmerMod" 
+```
+
+
+```{r, echo=F, results='asis'}
+stargazer(m3, style = "asr", type = "latex", title = "Harris et. al. ASR Table 3 Replication  - All Charges",
+          covariate.labels = c("Priors", "Petty Misdem.", "Misdem.","Gross Misdem.", "Age", 
+                               "Male",  "Black", "Hispanic", "Asian", "Native Am.", "Other Race", "Trial", 
+                               "Alcohol.DUI", "Drug", "Hunt.Fish", "Other Offense", "Percent Minority", 
+                               "Percent Vote Republican", "Percent Law and Justice"),
+          dep.var.labels =  "Total Fine and Fee Order (log)", model.numbers = F,
+          add.lines = list(c("L1 Variance", round(attr(VarCorr(m3), "sc")^2,2)),
+                           c("L2 Variance", round(as.numeric(VarCorr(m3)[["filed_county"]]),2))),
+          omit.stat = c("aic", "bic", "ll"))
+```
+
+```{r, eval=F, include=F}
+summary(m3)
+as.data.frame(ranef(m3)) %>% select(grp, condval) %>% mutate(exp(condval)) #ui in dollar values
+exp(m3@beta[1]) #baseline
+(exp(m3@beta[-1])-1)*100 #percentage change of b
+
+#diagnostics
+
+#model form - fitted vs residual
+plot(m3)
+
+#linearity - do for each variable
+#ggplot(data.frame(x1=monsanc.short$,pearson=residuals(m3,type="pearson")),
+#     aes(x=x1,y=pearson))
+
+#normality - qqplot
+qqnorm(resid(m3)) %>% qqline(resid(m3))
+
+#leverage
+influenceIndexPlot(m3)
+
+#ICC
+r1Var <- as.numeric(VarCorr(m3)[["filed_county"]])
+residVar <- attr(VarCorr(m3), "sc")^2
+r1Var
+residVar
+r1Var / (r1Var + residVar) #only 1.5% of variation is due to county
+```
+
+```{r, include=F}
+rm(list=setdiff(ls(), "monsanc.short"))
+#table 4 - Black Interactions
+m41 <- lmer(total_ff_log ~ priors+petty.mis+mis+gross.mis+log(age)+male+black+trial_flag+violent+
+              black_perc+repubvote+lecperc+(1|filed_county), REML = F, data = monsanc.short)
+class(m41) <- "lmerMod" 
+
+m42 <- lmer(total_ff_log ~ priors+petty.mis+mis+gross.mis+log(age)+male+black+trial_flag+violent+
+              black_perc+repubvote+lecperc+black_perc:black+(1|filed_county), 
+            REML = F, data = monsanc.short)
+class(m42) <- "lmerMod" 
+
+m43 <- lmer(total_ff_log ~ priors+petty.mis+mis+gross.mis+log(age)+male+black+trial_flag+violent+
+              black_perc+repubvote+lecperc+violent:black+(1|filed_county), 
+            REML = F, data = monsanc.short)
+class(m43) <- "lmerMod" 
+
+m44 <- lmer(total_ff_log ~ priors+petty.mis+mis+gross.mis+log(age)+male+black+trial_flag+violent+
+              black_perc+repubvote+lecperc+violent:black_perc+(1|filed_county), 
+            REML = F, data = monsanc.short)
+class(m44) <- "lmerMod" 
+
+```
+
+```{r, echo=F, results='asis'}
+stargazer(m41, m42, m43, m44,
+          style = "asr", type = "latex", title = "Harris et. al. ASR Table 4 Replication  - All Charges",
+          covariate.labels = c("Priors", "Petty Misdem.","Misdem.", "Gross Misdem.", "Age", 
+                               "Male",  "Black",  "Trial", 
+                               "Violent", "Percent Black", 
+                               "Percent Vote Republican", "Percent Law and Justice",
+                               "Black*Percent Black", "Black*Violent", "Violent*Percent Black"),
+          dep.var.labels =  "Total Fine and Fee Order (log)", model.numbers = T,
+          add.lines = list(c("L1 Variance", round(attr(VarCorr(m41), "sc")^2,2),
+                             round(attr(VarCorr(m42), "sc")^2,2), round(attr(VarCorr(m43), "sc")^2,2),
+                             round(attr(VarCorr(m44), "sc")^2,2)),
+                           c("L2 Variance", 
+                             round(as.numeric(VarCorr(m41)[["filed_county"]]),2),
+                             round(as.numeric(VarCorr(m42)[["filed_county"]]),2),
+                             round(as.numeric(VarCorr(m43)[["filed_county"]]),2),
+                             round(as.numeric(VarCorr(m44)[["filed_county"]]),2))),
+          omit.stat = c("aic", "bic", "ll"))
+```
+
+```{r, include=F}
+rm(list=setdiff(ls(), "monsanc.short"))
+
+#table 5 - Hispanic Interactions
+
+m51 <- lmer(total_ff_log ~ priors+petty.mis+mis+gross.mis+log(age)+male+hispanic+trial_flag+drug+
+              hisp_perc+repubvote+lecperc+(1|filed_county), REML = F, data = monsanc.short)
+class(m51) <- "lmerMod" 
+
+
+m52 <- lmer(total_ff_log ~ priors+petty.mis+mis+gross.mis+log(age)+male+hispanic+trial_flag+drug+
+              hisp_perc+repubvote+lecperc+hisp_perc:hispanic+(1|filed_county), 
+            REML = F, data = monsanc.short)
+class(m52) <- "lmerMod" 
+
+m53 <- lmer(total_ff_log ~ priors+petty.mis+mis+gross.mis+log(age)+male+hispanic+trial_flag+drug+
+              hisp_perc+repubvote+lecperc+drug:hispanic+(1|filed_county), 
+            REML = F, data = monsanc.short)
+class(m53) <- "lmerMod" 
+
+m54 <- lmer(total_ff_log ~ priors+petty.mis+mis+gross.mis+log(age)+male+hispanic+trial_flag+drug+
+              hisp_perc+repubvote+lecperc+drug:hisp_perc+(1|filed_county), 
+            REML = F, data = monsanc.short)
+class(m54) <- "lmerMod" 
+
+```
+
+```{r, echo=F, results='asis'}
+stargazer(m51, m52, m53, m54,
+          style = "asr", type = "latex", title = "Harris et. al. ASR Table 5 Replication  - All Charges",
+          covariate.labels = c("Priors", "Petty Misdem.", "Misdem.", "Gross Misdem.", "Age", 
+                               "Male",  "Hispanic",  "Trial", 
+                               "Drug", "Percent Hispanic", 
+                               "Percent Vote Republican", "Percent Law and Justice",
+                               "Hispanic*Percent Hispanic", "Hispanic*Drug", "Drug*Percent Hispanic"),
+          dep.var.labels =  "Total Fine and Fee Order (log)", model.numbers = T,
+          add.lines = list(c("L1 Variance", round(attr(VarCorr(m51), "sc")^2,2),
+                             round(attr(VarCorr(m52), "sc")^2,2), round(attr(VarCorr(m53), "sc")^2,2),
+                             round(attr(VarCorr(m54), "sc")^2,2)),
+                           c("L2 Variance", 
+                             round(as.numeric(VarCorr(m51)[["filed_county"]]),2),
+                             round(as.numeric(VarCorr(m52)[["filed_county"]]),2),
+                             round(as.numeric(VarCorr(m53)[["filed_county"]]),2),
+                             round(as.numeric(VarCorr(m54)[["filed_county"]]),2))),
+          omit.stat = c("aic", "bic", "ll"))
+```
+
+```{r, include=F}
+rm(list=setdiff(ls(), "monsanc.short"))
+
+#table "6" - Native American Interactions 
+m61 <- lmer(total_ff_log ~ priors+petty.mis+mis+gross.mis+log(age)+male+nativeam+trial_flag+alcohol.dui+hunt.fish+
+              na_perc+repubvote+lecperc+(1|filed_county), REML = F, data = monsanc.short)
+class(m61) <- "lmerMod" 
+
+
+m62 <- lmer(total_ff_log ~ priors+petty.mis+mis+gross.mis+log(age)+male+nativeam+trial_flag+alcohol.dui+hunt.fish+
+              na_perc+repubvote+lecperc+na_perc:nativeam+(1|filed_county), 
+            REML = F, data = monsanc.short)
+class(m62) <- "lmerMod" 
+
+m63 <- lmer(total_ff_log ~ priors+petty.mis+mis+gross.mis+log(age)+male+nativeam+trial_flag+alcohol.dui+hunt.fish+
+              na_perc+repubvote+lecperc+alcohol.dui:nativeam+hunt.fish:nativeam+(1|filed_county), 
+            REML = F, data = monsanc.short)
+class(m63) <- "lmerMod" 
+
+m64 <- lmer(total_ff_log ~ priors+petty.mis+mis+gross.mis+log(age)+male+nativeam+trial_flag+alcohol.dui+hunt.fish+
+              na_perc+repubvote+lecperc+alcohol.dui:na_perc+hunt.fish:na_perc+(1|filed_county), 
+            REML = F, data = monsanc.short)
+class(m64) <- "lmerMod" 
+
+```
+
+```{r, echo=F, results='asis'}
+stargazer(m61, m62, m63, m64,
+          style = "asr", type = "latex", title = "Harris et. al. ASR Table 5 Replication  - All Charges",
+          covariate.labels = c("Priors", "Petty Misdem.", "Misdem.", "Gross Misdem.", "Age", 
+                               "Male",  "Native Am.",  "Trial", 
+                               "Alcohol.DUI", "Hunt.Fish", "Percent NA", 
+                               "Percent Vote Republican", "Percent Law and Justice",
+                               "Native Am.*Percent NA", "Native Am.*Alcohol.DUI","Native Am.*Hunt.Fish",
+                               "Alcohol.DUI*Percent NA", "Hunt.Fish*Percent NA"),
+          dep.var.labels =  "Total Fine and Fee Order (log)", model.numbers = T,
+          add.lines = list(c("L1 Variance", round(attr(VarCorr(m61), "sc")^2,2),
+                             round(attr(VarCorr(m62), "sc")^2,2), round(attr(VarCorr(m63), "sc")^2,2),
+                             round(attr(VarCorr(m64), "sc")^2,2)),
+                           c("L2 Variance", 
+                             round(as.numeric(VarCorr(m61)[["filed_county"]]),2),
+                             round(as.numeric(VarCorr(m62)[["filed_county"]]),2),
+                             round(as.numeric(VarCorr(m63)[["filed_county"]]),2),
+                             round(as.numeric(VarCorr(m64)[["filed_county"]]),2))),
+          omit.stat = c("aic", "bic", "ll"))
+```
+
