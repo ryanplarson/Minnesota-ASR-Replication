@@ -1,4 +1,4 @@
-This is pdfTeX, Version 3.1415926-2.5-1.40.14 (TeX Live 2013) (format=pdflatex 2019.1.7)  12 OCT 2019 15:33
+This is pdfTeX, Version 3.1415926-2.5-1.40.14 (TeX Live 2013) (format=pdflatex 2019.1.7)  13 OCT 2019 20:43
 entering extended mode
  restricted \write18 enabled.
  %&-line parsing enabled.
@@ -731,28 +731,28 @@ Overfull \hbox (395.44429pt too wide) in paragraph at lines 170--200
  []
 
 [4]
-Package atveryend Info: Empty hook `BeforeClearDocument' on input line 357.
+Package atveryend Info: Empty hook `BeforeClearDocument' on input line 341.
 [5] [6] [7] [8]
-Package atveryend Info: Empty hook `AfterLastShipout' on input line 357.
+Package atveryend Info: Empty hook `AfterLastShipout' on input line 341.
 (./ASR_replication_preliminary_all_charges.aux)
-Package atveryend Info: Executing hook `AtVeryEndDocument' on input line 357.
-Package atveryend Info: Executing hook `AtEndAfterFileList' on input line 357.
+Package atveryend Info: Executing hook `AtVeryEndDocument' on input line 341.
+Package atveryend Info: Executing hook `AtEndAfterFileList' on input line 341.
 Package rerunfilecheck Info: File `ASR_replication_preliminary_all_charges.out'
  has not changed.
 (rerunfilecheck)             Checksum: 6E671DB3AC89180D7071CFBFDAF6FD1B;665.
 
 LaTeX Warning: There were multiply-defined labels.
 
-Package atveryend Info: Empty hook `AtVeryVeryEnd' on input line 357.
+Package atveryend Info: Empty hook `AtVeryVeryEnd' on input line 341.
  ) 
 Here is how much of TeX's memory you used:
  11750 strings out of 495063
  170114 string characters out of 3182202
- 287289 words of memory out of 3000000
+ 286289 words of memory out of 3000000
  14725 multiletter control sequences out of 15000+200000
  54458 words of font info for 75 fonts, out of 3000000 for 9000
  14 hyphenation exceptions out of 8191
- 31i,9n,35p,281b,344s stack positions out of 5000i,500n,10000p,200000b,50000s
+ 31i,9n,35p,281b,346s stack positions out of 5000i,500n,10000p,200000b,50000s
 {/usr/share/texlive/texmf-dist/fonts/enc/dvips/lm/lm-mathit.enc}{/usr/share/t
 exlive/texmf-dist/fonts/enc/dvips/lm/lm-ec.enc}{/usr/share/texlive/texmf-dist/f
 onts/enc/dvips/lm/lm-mathsy.enc}</usr/share/texlive/texmf-dist/fonts/type1/publ
@@ -762,7 +762,7 @@ xlive/texmf-dist/fonts/type1/public/lm/lmr17.pfb></usr/share/texlive/texmf-dist
 /fonts/type1/public/lm/lmri10.pfb></usr/share/texlive/texmf-dist/fonts/type1/pu
 blic/lm/lmri12.pfb></usr/share/texlive/texmf-dist/fonts/type1/public/lm/lmsy10.
 pfb></usr/share/texlive/texmf-dist/fonts/type1/public/lm/lmsy8.pfb>
-Output written on ASR_replication_preliminary_all_charges.pdf (8 pages, 129486 
+Output written on ASR_replication_preliminary_all_charges.pdf (8 pages, 129210 
 bytes).
 PDF statistics:
  111 PDF objects out of 1000 (max. 8388607)

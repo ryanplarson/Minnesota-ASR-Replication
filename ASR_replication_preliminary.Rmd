@@ -151,7 +151,7 @@ stargazer(m3f, style = "asr", type = "latex", title = "Harris et. al. ASR Table 
           dep.var.labels =  "Total Fine and Fee Order (log)", model.numbers = F,
           add.lines = list(c("L1 Variance", round(attr(VarCorr(m3f), "sc")^2,2)),
                                       c("L2 Variance", round(as.numeric(VarCorr(m3f)[["filed_county"]]),2))),
-          omit.stat = c("aic", "bic", "ll"))
+          omit.stat = c("aic", "bic", "ll"), header=F)
 ```
 
 ```{r, eval=F, include=F}
@@ -223,7 +223,7 @@ stargazer(m41f, m42f, m43f, m44f,
                                         round(as.numeric(VarCorr(m42f)[["filed_county"]]),2),
                                         round(as.numeric(VarCorr(m43f)[["filed_county"]]),2),
                                         round(as.numeric(VarCorr(m44f)[["filed_county"]]),2))),
-          omit.stat = c("aic", "bic", "ll"))
+          omit.stat = c("aic", "bic", "ll"), header=F)
 ```
 
 ```{r, include=F}
@@ -268,7 +268,7 @@ stargazer(m51f, m52f, m53f, m54f,
                                         round(as.numeric(VarCorr(m52f)[["filed_county"]]),2),
                                         round(as.numeric(VarCorr(m53f)[["filed_county"]]),2),
                                         round(as.numeric(VarCorr(m54f)[["filed_county"]]),2))),
-          omit.stat = c("aic", "bic", "ll"))
+          omit.stat = c("aic", "bic", "ll"), header=F)
 ```
 
 ```{r, include=F}
@@ -313,6 +313,6 @@ stargazer(m61f, m62f, m63f, m64f,
                                         round(as.numeric(VarCorr(m62f)[["filed_county"]]),2),
                                         round(as.numeric(VarCorr(m63f)[["filed_county"]]),2),
                                         round(as.numeric(VarCorr(m64f)[["filed_county"]]),2))),
-          omit.stat = c("aic", "bic", "ll"))
+          omit.stat = c("aic", "bic", "ll"), header=F)
 ```
 

@@ -1,4 +1,4 @@
-This is pdfTeX, Version 3.1415926-2.5-1.40.14 (TeX Live 2013) (format=pdflatex 2019.1.7)  12 OCT 2019 14:25
+This is pdfTeX, Version 3.1415926-2.5-1.40.14 (TeX Live 2013) (format=pdflatex 2019.1.7)  13 OCT 2019 21:36
 entering extended mode
  restricted \write18 enabled.
  %&-line parsing enabled.
@@ -723,28 +723,28 @@ Overfull \hbox (259.06665pt too wide) in paragraph at lines 153--179
  []
 
 [3]
-Package atveryend Info: Empty hook `BeforeClearDocument' on input line 332.
+Package atveryend Info: Empty hook `BeforeClearDocument' on input line 316.
 [4] [5] [6]
-Package atveryend Info: Empty hook `AfterLastShipout' on input line 332.
+Package atveryend Info: Empty hook `AfterLastShipout' on input line 316.
 (./ASR_replication_preliminary.aux)
-Package atveryend Info: Executing hook `AtVeryEndDocument' on input line 332.
-Package atveryend Info: Executing hook `AtEndAfterFileList' on input line 332.
+Package atveryend Info: Executing hook `AtVeryEndDocument' on input line 316.
+Package atveryend Info: Executing hook `AtEndAfterFileList' on input line 316.
 Package rerunfilecheck Info: File `ASR_replication_preliminary.out' has not cha
 nged.
 (rerunfilecheck)             Checksum: 6E671DB3AC89180D7071CFBFDAF6FD1B;665.
 
 LaTeX Warning: There were multiply-defined labels.
 
-Package atveryend Info: Empty hook `AtVeryVeryEnd' on input line 332.
+Package atveryend Info: Empty hook `AtVeryVeryEnd' on input line 316.
  ) 
 Here is how much of TeX's memory you used:
  11748 strings out of 495063
  169896 string characters out of 3182202
- 285196 words of memory out of 3000000
+ 283186 words of memory out of 3000000
  14725 multiletter control sequences out of 15000+200000
  54458 words of font info for 75 fonts, out of 3000000 for 9000
  14 hyphenation exceptions out of 8191
- 31i,9n,35p,269b,344s stack positions out of 5000i,500n,10000p,200000b,50000s
+ 31i,9n,35p,269b,346s stack positions out of 5000i,500n,10000p,200000b,50000s
 {/usr/share/texlive/texmf-dist/fonts/enc/dvips/lm/lm-mathit.enc}{/usr/share/t
 exlive/texmf-dist/fonts/enc/dvips/lm/lm-ec.enc}{/usr/share/texlive/texmf-dist/f
 onts/enc/dvips/lm/lm-mathsy.enc}</usr/share/texlive/texmf-dist/fonts/type1/publ
@@ -754,7 +754,7 @@ xlive/texmf-dist/fonts/type1/public/lm/lmr17.pfb></usr/share/texlive/texmf-dist
 /fonts/type1/public/lm/lmri10.pfb></usr/share/texlive/texmf-dist/fonts/type1/pu
 blic/lm/lmri12.pfb></usr/share/texlive/texmf-dist/fonts/type1/public/lm/lmsy10.
 pfb></usr/share/texlive/texmf-dist/fonts/type1/public/lm/lmsy8.pfb>
-Output written on ASR_replication_preliminary.pdf (6 pages, 127114 bytes).
+Output written on ASR_replication_preliminary.pdf (6 pages, 126687 bytes).
 PDF statistics:
  100 PDF objects out of 1000 (max. 8388607)
  81 compressed objects within 1 object stream
