@@ -42,7 +42,7 @@ monsanc <- read_csv("~/MonSanc/monsanc.csv")
 monsanc.short <- monsanc %>%
   mutate(total_ff = total_ff*adj, #adjust dollars to Jan. 2018
          total_ff_stand = scale(total_ff),
-         total_ff_log = log((total_ff+1)*adj), #log+1 DV
+         total_ff_log = log((total_ff+1)), #log+1 DV
          min_perc = (min_pop/total_pop)*100,
          black_perc = (black_pop/total_pop)*100,
          hisp_perc = (hisp_pop/total_pop)*100, 

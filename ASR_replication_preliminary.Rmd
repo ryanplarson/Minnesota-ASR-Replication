@@ -42,7 +42,7 @@ monsanc <- read_csv("~/MonSanc/monsanc.csv")
 monsanc.short <- monsanc %>%
   mutate(total_ff = total_ff*adj, #adjust dollars to Jan. 2018
          total_ff_stand = scale(total_ff),
-         total_ff_log = log((total_ff+1)*adj), #log+1 DV
+         total_ff_log = log((total_ff+1)), #log+1 DV
          min_perc = (min_pop/total_pop)*100,
          black_perc = (black_pop/total_pop)*100,
          hisp_perc = (hisp_pop/total_pop)*100, 
@@ -278,17 +278,17 @@ m61f <- lmer(total_ff_log ~ priors+log(age)+male+nativeam+trial_flag+alcohol.dui
 class(m61f) <- "lmerMod" 
 
 
-m62f <- lmer(total_ff_log ~ log(age)+male+nativeam+trial_flag+alcohol.dui+
+m62f <- lmer(total_ff_log ~ priors+log(age)+male+nativeam+trial_flag+alcohol.dui+
                na_perc+repubvote+lecperc+na_perc:nativeam+(1|filed_county), 
              REML = F, data = felony)
 class(m62f) <- "lmerMod" 
 
-m63f <- lmer(total_ff_log ~ log(age)+male+nativeam+trial_flag+alcohol.dui+
+m63f <- lmer(total_ff_log ~ priors+log(age)+male+nativeam+trial_flag+alcohol.dui+
                na_perc+repubvote+lecperc+alcohol.dui:nativeam+hunt.fish:nativeam+(1|filed_county), 
              REML = F, data = felony)
 class(m63f) <- "lmerMod" 
 
-m64f <- lmer(total_ff_log ~ log(age)+male+nativeam+trial_flag+alcohol.dui+
+m64f <- lmer(total_ff_log ~ priors+log(age)+male+nativeam+trial_flag+alcohol.dui+
                na_perc+repubvote+lecperc+alcohol.dui:na_perc+(1|filed_county), 
              REML = F, data = felony)
 class(m64f) <- "lmerMod" 
