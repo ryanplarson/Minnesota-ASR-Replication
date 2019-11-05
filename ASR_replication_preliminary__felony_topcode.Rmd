@@ -1,5 +1,5 @@
 ---
-title: "ASR Replication Preliminary - Felony"
+title: "ASR Replication Preliminary - Felony w/ Top Code"
 author: "Ryan Larson - UMN"
 date: "`r format(Sys.time(), '%m/%d/%Y')`"
 output: pdf_document
@@ -18,11 +18,14 @@ This analysis represents a preliminary attempt to replicate and extend the Harri
 ##########################################
 
 #TO DO
+#make model buildings
+#models with top code
 #model with all interactions
 #add in other covariates(e.g., sentence), make different models
 #make more complex crim history var
+#L2 poverty - will make from CPS?
 #dynamic level-2 covariates?
-#county fixed effects - make sure level-2 is time varying for diff-in-diff
+#county fixed effects - make sure level-2 is time varying
 
 
 #packages
@@ -37,9 +40,10 @@ library(car)
 #load data - constructed from MCAO .txt files
 monsanc <- read_csv("~/MonSanc/monsanc.csv") 
 
-#recoding and filtering
+#recoding and filtering, topcode
 monsanc.short <- monsanc %>%
   mutate(total_ff = total_ff*adj, #adjust dollars to Jan. 2018
+         total_ff = ifelse(total_ff > 1000, 1000, total_ff),
          total_ff_stand = scale(total_ff),
          total_ff_log = log((total_ff+1)), #log+1 DV
          min_perc = (min_pop/total_pop)*100,
@@ -69,7 +73,7 @@ monsanc.short <- monsanc.short %>%
          male = ifelse(gender_impute=="M", 1,0)) %>%
   filter(age >= 15) #filtering cases with likely error ages (n=620)
 
-#felony filter
+#felony filter and topcode
 felony <- monsanc.short %>% filter(charge_degree=="felony")
 ```
 

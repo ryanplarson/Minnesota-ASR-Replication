@@ -1,5 +1,5 @@
 ---
-title: "ASR Replication Preliminary - All Charges"
+title: "ASR Replication Preliminary - All Charges, Topcode $1000"
 author: "Ryan Larson - UMN"
 date: "`r format(Sys.time(), '%m/%d/%Y')`"
 output: pdf_document
@@ -43,6 +43,7 @@ monsanc <- read_csv("~/MonSanc/monsanc.csv")
 #recoding and filtering
 monsanc.short <- monsanc %>%
   mutate(total_ff = total_ff*adj, #adjust dollars to Jan. 2018
+          total_ff = ifelse(total_ff > 1000, 1000, total_ff),
          total_ff_stand = scale(total_ff),
          total_ff_log = log((total_ff+1)), #log+1 DV
          min_perc = (min_pop/total_pop)*100,

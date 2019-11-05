@@ -1,4 +1,4 @@
-This is pdfTeX, Version 3.1415926-2.5-1.40.14 (TeX Live 2013) (format=pdflatex 2019.1.7)  13 OCT 2019 23:37
+This is pdfTeX, Version 3.1415926-2.5-1.40.14 (TeX Live 2013) (format=pdflatex 2019.1.7)  4 NOV 2019 15:24
 entering extended mode
  restricted \write18 enabled.
  %&-line parsing enabled.
@@ -665,92 +665,87 @@ File: ASR_replication_preliminary_all_charges_files/figure-latex/unnamed-chunk-
 <use ASR_replication_preliminary_all_charges_files/figure-latex/unnamed-chunk-2
 -1.pdf>
 Package pdftex.def Info: ASR_replication_preliminary_all_charges_files/figure-l
-atex/unnamed-chunk-2-1.pdf used on input line 123.
+atex/unnamed-chunk-2-1.pdf used on input line 121.
 (pdftex.def)             Requested size: 469.75386pt x 325.2142pt.
-
-Underfull \hbox (badness 10000) in paragraph at lines 123--125
-[]
- []
-
 [1
 
 {/usr/share/texlive/texmf/fonts/map/pdftex/updmap/pdftex.map}] [2 <./ASR_replic
 ation_preliminary_all_charges_files/figure-latex/unnamed-chunk-2-1.pdf>]
-LaTeX Font Info:    Try loading font information for OT1+lmr on input line 131.
+LaTeX Font Info:    Try loading font information for OT1+lmr on input line 130.
 
 (/usr/share/texlive/texmf-dist/tex/latex/lm/ot1lmr.fd
 File: ot1lmr.fd 2009/10/30 v1.6 Font defs for Latin Modern
 )
-LaTeX Font Info:    Try loading font information for OML+lmm on input line 131.
+LaTeX Font Info:    Try loading font information for OML+lmm on input line 130.
 
 (/usr/share/texlive/texmf-dist/tex/latex/lm/omllmm.fd
 File: omllmm.fd 2009/10/30 v1.6 Font defs for Latin Modern
 )
-LaTeX Font Info:    Try loading font information for OMS+lmsy on input line 131
+LaTeX Font Info:    Try loading font information for OMS+lmsy on input line 130
 .
 (/usr/share/texlive/texmf-dist/tex/latex/lm/omslmsy.fd
 File: omslmsy.fd 2009/10/30 v1.6 Font defs for Latin Modern
 )
-LaTeX Font Info:    Try loading font information for OMX+lmex on input line 131
+LaTeX Font Info:    Try loading font information for OMX+lmex on input line 130
 .
 (/usr/share/texlive/texmf-dist/tex/latex/lm/omxlmex.fd
 File: omxlmex.fd 2009/10/30 v1.6 Font defs for Latin Modern
 )
 LaTeX Font Info:    External font `lmex10' loaded for size
-(Font)              <10.95> on input line 131.
+(Font)              <10.95> on input line 130.
 LaTeX Font Info:    External font `lmex10' loaded for size
-(Font)              <8> on input line 131.
+(Font)              <8> on input line 130.
 LaTeX Font Info:    External font `lmex10' loaded for size
-(Font)              <6> on input line 131.
-LaTeX Font Info:    Try loading font information for U+msa on input line 131.
+(Font)              <6> on input line 130.
+LaTeX Font Info:    Try loading font information for U+msa on input line 130.
 (/usr/share/texlive/texmf-dist/tex/latex/amsfonts/umsa.fd
 File: umsa.fd 2013/01/14 v3.01 AMS symbols A
 ) (/usr/share/texlive/texmf-dist/tex/latex/microtype/mt-msa.cfg
 File: mt-msa.cfg 2006/02/04 v1.1 microtype config. file: AMS symbols (a) (RS)
 )
-LaTeX Font Info:    Try loading font information for U+msb on input line 131.
+LaTeX Font Info:    Try loading font information for U+msb on input line 130.
 (/usr/share/texlive/texmf-dist/tex/latex/amsfonts/umsb.fd
 File: umsb.fd 2013/01/14 v3.01 AMS symbols B
 ) (/usr/share/texlive/texmf-dist/tex/latex/microtype/mt-msb.cfg
 File: mt-msb.cfg 2005/06/01 v1.0 microtype config. file: AMS symbols (b) (RS)
 )
-Overfull \hbox (62.8587pt too wide) in paragraph at lines 131--160
+Overfull \hbox (58.75296pt too wide) in paragraph at lines 130--155
  [][] 
  []
 
 [3]
 LaTeX Font Info:    External font `lmex10' loaded for size
-(Font)              <10> on input line 170.
+(Font)              <10> on input line 165.
 LaTeX Font Info:    External font `lmex10' loaded for size
-(Font)              <7> on input line 170.
+(Font)              <7> on input line 165.
 LaTeX Font Info:    External font `lmex10' loaded for size
-(Font)              <5> on input line 170.
+(Font)              <5> on input line 165.
 
-Overfull \hbox (395.44429pt too wide) in paragraph at lines 170--200
+Overfull \hbox (262.39998pt too wide) in paragraph at lines 165--191
  [][] 
  []
 
 [4]
-Package atveryend Info: Empty hook `BeforeClearDocument' on input line 341.
-[5] [6] [7] [8]
-Package atveryend Info: Empty hook `AfterLastShipout' on input line 341.
+Package atveryend Info: Empty hook `BeforeClearDocument' on input line 332.
+[5] [6] [7]
+Package atveryend Info: Empty hook `AfterLastShipout' on input line 332.
 (./ASR_replication_preliminary_all_charges.aux)
-Package atveryend Info: Executing hook `AtVeryEndDocument' on input line 341.
-Package atveryend Info: Executing hook `AtEndAfterFileList' on input line 341.
+Package atveryend Info: Executing hook `AtVeryEndDocument' on input line 332.
+Package atveryend Info: Executing hook `AtEndAfterFileList' on input line 332.
 Package rerunfilecheck Info: File `ASR_replication_preliminary_all_charges.out'
  has not changed.
 (rerunfilecheck)             Checksum: 6E671DB3AC89180D7071CFBFDAF6FD1B;665.
 
 LaTeX Warning: There were multiply-defined labels.
 
-Package atveryend Info: Empty hook `AtVeryVeryEnd' on input line 341.
+Package atveryend Info: Empty hook `AtVeryVeryEnd' on input line 332.
  ) 
 Here is how much of TeX's memory you used:
- 11750 strings out of 495063
- 170114 string characters out of 3182202
- 286289 words of memory out of 3000000
+ 11751 strings out of 495063
+ 170132 string characters out of 3182202
+ 287284 words of memory out of 3000000
  14725 multiletter control sequences out of 15000+200000
- 54458 words of font info for 75 fonts, out of 3000000 for 9000
+ 54541 words of font info for 76 fonts, out of 3000000 for 9000
  14 hyphenation exceptions out of 8191
  31i,9n,35p,281b,346s stack positions out of 5000i,500n,10000p,200000b,50000s
 {/usr/share/texlive/texmf-dist/fonts/enc/dvips/lm/lm-mathit.enc}{/usr/share/t
@@ -762,11 +757,11 @@ xlive/texmf-dist/fonts/type1/public/lm/lmr17.pfb></usr/share/texlive/texmf-dist
 /fonts/type1/public/lm/lmri10.pfb></usr/share/texlive/texmf-dist/fonts/type1/pu
 blic/lm/lmri12.pfb></usr/share/texlive/texmf-dist/fonts/type1/public/lm/lmsy10.
 pfb></usr/share/texlive/texmf-dist/fonts/type1/public/lm/lmsy8.pfb>
-Output written on ASR_replication_preliminary_all_charges.pdf (8 pages, 129196 
+Output written on ASR_replication_preliminary_all_charges.pdf (7 pages, 128393 
 bytes).
 PDF statistics:
- 111 PDF objects out of 1000 (max. 8388607)
- 90 compressed objects within 1 object stream
- 19 named destinations out of 1000 (max. 500000)
+ 106 PDF objects out of 1000 (max. 8388607)
+ 86 compressed objects within 1 object stream
+ 18 named destinations out of 1000 (max. 500000)
  14374 words of extra memory for PDF output out of 14400 (max. 10000000)
 
