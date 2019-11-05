@@ -148,6 +148,11 @@ summary(m3race.all) #coefficient shrunk, likely due to large variance of coeffic
 m3raceOLS.all <- lm(total_ff_log ~  black+hispanic+asian+nativeam+other.race, data = monsanc.short)
 summary(m3raceOLS.all) #positive here
 
+m3race.fe.all <- lm(total_ff_log ~  black+hispanic+asian+nativeam+other.race+filed_county, 
+                    data = monsanc.short)
+summary(m3race.fe.all)
+
+
 #do FE here
 
 #model building table 3

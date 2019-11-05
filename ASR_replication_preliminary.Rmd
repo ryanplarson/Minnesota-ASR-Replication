@@ -146,6 +146,10 @@ summary(m3race)
 m3raceOLS <- lm(total_ff_log ~  black+hispanic+asian+nativeam+other.race, data = felony)
 summary(m3raceOLS)
 
+
+m3race.fe <- lm(total_ff_log ~  black+hispanic+asian+nativeam+other.race+filed_county, data = felony)
+summary(m3race.fe)
+
 #model building table 3
 m31f <-  lmer(total_ff_log ~ 1+(1|filed_county), 
                REML = F, data = felony)
