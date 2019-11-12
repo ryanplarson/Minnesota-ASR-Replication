@@ -37,6 +37,8 @@ library(car)
 #load data - constructed from MCAO .txt files
 monsanc <- read_csv("~/MonSanc/monsanc.csv") 
 
+#join in crim history and 
+
 #recoding and filtering
 monsanc.short <- monsanc %>%
   mutate(total_ff = total_ff*adj, #adjust dollars to Jan. 2018

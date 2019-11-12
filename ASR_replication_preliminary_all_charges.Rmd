@@ -153,8 +153,6 @@ m3race.fe.all <- lm(total_ff_log ~  black+hispanic+asian+nativeam+other.race+fil
 summary(m3race.fe.all)
 
 
-#do FE here
-
 #model building table 3
 m31 <-  lmer(total_ff_log ~ 1+(1|filed_county), 
                REML = F, data = monsanc.short)
