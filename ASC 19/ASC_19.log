@@ -1,4 +1,4 @@
-This is pdfTeX, Version 3.1415926-2.5-1.40.14 (TeX Live 2013) (format=pdflatex 2019.1.5)  14 NOV 2019 19:05
+This is pdfTeX, Version 3.1415926-2.5-1.40.14 (TeX Live 2013) (format=pdflatex 2019.1.5)  14 NOV 2019 20:16
 entering extended mode
  restricted \write18 enabled.
  %&-line parsing enabled.
@@ -1315,11 +1315,11 @@ LaTeX Warning: There were multiply-defined labels.
 Package atveryend Info: Empty hook `AtVeryVeryEnd' on input line 523.
  ) 
 Here is how much of TeX's memory you used:
- 17771 strings out of 495063
- 326311 string characters out of 3182202
- 437286 words of memory out of 3000000
+ 17773 strings out of 495063
+ 326333 string characters out of 3182202
+ 438286 words of memory out of 3000000
  20432 multiletter control sequences out of 15000+200000
- 45147 words of font info for 61 fonts, out of 3000000 for 9000
+ 45248 words of font info for 62 fonts, out of 3000000 for 9000
  14 hyphenation exceptions out of 8191
  49i,15n,53p,432b,585s stack positions out of 5000i,500n,10000p,200000b,50000s
 {/usr/share/texlive/texmf-dist/fonts/enc/dvips/lm/lm-mathsy.enc}{/usr/share/t
@@ -1335,7 +1335,7 @@ m/lmsso10.pfb></usr/share/texlive/texmf-dist/fonts/type1/public/lm/lmsso8.pfb><
 ve/texmf-dist/fonts/type1/public/lm/lmsy8.pfb></usr/share/texlive/texmf-dist/fo
 nts/type1/public/amsfonts/symbols/msam10.pfb></usr/share/texlive/texmf-dist/fon
 ts/type1/public/amsfonts/symbols/msam7.pfb>
-Output written on ASC_19.pdf (25 pages, 278416 bytes).
+Output written on ASC_19.pdf (25 pages, 278451 bytes).
 PDF statistics:
  270 PDF objects out of 1000 (max. 8388607)
  215 compressed objects within 3 object streams

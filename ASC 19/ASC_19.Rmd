@@ -338,7 +338,7 @@ ggplot(race.ff, aes(x = file_year, y = value, group=race_impute))+
 
 ### Harris et. al. (2011) ASR
 
-- Black and Latino defendants receive higher LFOs compares to Whites, net of legal measures
+- Black and Latino defendants receive higher LFOs compared to Whites, net of legal measures
 - Latino drug defendants, Black violent defendants* = higher LFOs
 - find courtesy stigma for both violent defendants in Black areas, drug defendants in Latino areas
 
@@ -350,7 +350,7 @@ ggplot(race.ff, aes(x = file_year, y = value, group=race_impute))+
 
 - What are the extra-legal racial effects on sentenced LFOs in MN, net of legal variables? 
 - Are these effects moderated by racialized socio-cultural crime scripts and community context?
-- Does the community context moderate the effect for community out groups - ``courtesy stigma" (Goffman 1963)?
+- Does the community context moderate the effect for congruent crime scripts - ``courtesy stigma" (Goffman 1963)?
 
 
 ### Current Study
@@ -375,7 +375,7 @@ ggplot(race.ff, aes(x = file_year, y = value, group=race_impute))+
 -  Controls:
     - legal variables - criminal history score and offense severity, prison, trial
     - other demographics: age, gender  
-    - offense type: violent, drug, alcohol, hunt/fish, other
+    - offense type: violent, drug, alcohol, other
     - county level: percent vote republican, percent minority, percent law/justice expenditure
 
 
