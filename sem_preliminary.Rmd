@@ -1,0 +1,109 @@
+---
+title: "SEM Preliminary"
+author: "Ryan Larson - UMN"
+date: "`r format(Sys.time(), '%m/%d/%Y')`"
+output: pdf_document
+fontsize: 11pt
+editor_options: 
+  chunk_output_type: console
+header-includes:
+- \usepackage{dcolumn}
+---
+```{r, warning=F, include=F, message=F}
+library(readr)
+library(dplyr)
+library(ggplot2)
+library(sem)
+library(systemfit)
+
+#to do
+#finish up data-redo
+#rerun plots
+#rerun endogenous models
+#rerun replication models
+#merge rob's new charge level
+#make pdfs with dropping petty misdemeanors
+#missing data story - both with and without petty misdemeanors
+
+#load data - constructed from MCAO .txt files
+monsanc <- read_csv("~/MonSanc/monsanc.csv") 
+
+#recoding and filtering, topcode
+monsanc.short <- monsanc %>%
+  mutate(total_ff = total_ff*adj, #adjust dollars to Jan. 2018
+         total_ff = ifelse(total_ff > 1000, 1000, total_ff),
+         total_ff_stand = scale(total_ff),
+         total_ff_log = log((total_ff+1)), #log+1 DV
+         min_perc = (min_pop/total_pop)*100,
+         black_perc = (black_pop/total_pop)*100,
+         hisp_perc = (hisp_pop/total_pop)*100, 
+         na_perc = (na_pop/total_pop)*100) %>%
+  filter(sentence_year >= 2010 & sentence_year <= 2018) #restricting to cases started from 2010-2015
+
+#make factors into binary indicators to match analyses/tables from paper
+monsanc.short <- monsanc.short %>% 
+  mutate(charge_degree = ifelse(charge_degree=="converted"|charge_degree=="other", NA, charge_degree),
+         felony = ifelse(charge_degree=="felony", 1, 0), 
+         gross.mis = ifelse(charge_degree=="gross misdemeanor", 1, 0),
+         mis = ifelse(charge_degree=="misdemeanor", 1, 0),
+         petty.mis = ifelse(charge_degree=="petty misdemeanor", 1, 0),
+         white = ifelse(race_impute=="white", 1, 0),
+         asian = ifelse(race_impute=="asian", 1, 0),
+         black = ifelse(race_impute=="black", 1, 0),
+         hispanic = ifelse(race_impute=="hispanic", 1, 0),
+         nativeam = ifelse(race_impute=="nat. am.", 1, 0),
+         other.race = ifelse(race_impute=="other", 1, 0),
+         violent = ifelse(charge_offense=="violent", 1, 0),
+         alcohol.dui = ifelse(charge_offense=="alcohol/dui", 1, 0),
+         drug = ifelse(charge_offense=="drug", 1, 0),
+         hunt.fish = ifelse(charge_offense=="hunt/fish", 1, 0),
+         other.offense = ifelse(charge_offense=="other", 1, 0),
+         male = ifelse(gender_impute=="M", 1,0)) %>%
+  filter(age >= 15) #filtering cases with likely error ages 
+
+#dropping missing total_ff_log
+monsanc.short <- monsanc.short %>% filter(!is.na(total_ff_log))
+```
+
+```{r}
+ols <- lm(total_ff_log~black+hispanic+asian+nativeam+other.race+
+           male+log(age)+priors+trial_flag+drug+alcohol.dui+hunt.fish+other.offense+
+           min_perc+repubvote+lecperc, data = monsanc.short)
+summary(ols)
+
+
+#Multivariate Regression - when all predictors are identical across models
+  #equivalent to separate OLS, but more efficient and takes into account error covariance
+
+mv <- lm(cbind(total_ff_log, conf_days)~black+hispanic+asian+nativeam+other.race+
+           male+log(age)+priors+trial_flag+drug+alcohol.dui+hunt.fish+other.offense+
+           min_perc+repubvote+lecperc, data = monsanc.short)
+summary(mv)
+```
+
+```{r}
+#SUR: seemingly unrelated regression
+  #same as OLS when covariance matrix is diagonal, or preictors same across equations
+sur <- systemfit(list(total_ff_log~black+hispanic+asian+nativeam+other.race+
+           male+log(age)+priors+drug+alcohol.dui+hunt.fish+other.offense+
+           min_perc+repubvote+lecperc, 
+                      conf_days~black+hispanic+asian+nativeam+other.race+
+           male+log(age)+priors+trial_flag+drug+alcohol.dui+hunt.fish+other.offense+
+           min_perc+repubvote+lecperc), data=monsanc.short)
+summary(sur)
+```
+
+```{r}
+#structural equation model
+  #2SLS - uses rpedicted value of conf days in LFO equation
+
+tsls <- tsls(total_ff_log~black+hispanic+asian+nativeam+other.race+
+           male+log(age)+conf_days+drug+alcohol.dui+hunt.fish+other.offense+
+           min_perc+repubvote+lecperc,
+           ~black+hispanic+asian+nativeam+other.race+
+           male+log(age)+priors+trial_flag+drug+alcohol.dui+hunt.fish+other.offense+
+           min_perc+repubvote+lecperc, data = monsanc.short)
+
+summary(tsls)
+
+```

@@ -6,6 +6,8 @@ output: pdf_document
 fontsize: 11pt
 editor_options: 
   chunk_output_type: console
+header-includes:
+- \usepackage{dcolumn}
 ---
 
 This analysis represents a preliminary attempt to replicate and extend the Harris et. al. ASR paper. The Minnesota data is situated at the case level from 2010-2015.  The full data series extends back to 2004, but VIBES data in the two most populous MN counties, Hennepin and Ramsey, are missing and inconsistent until 2010. Additionally, while data at the conviction level would be more comparable, we do not have data at the conviction level for much of the VIBES data.This analysis uses the felony only data which more closely reflects the ASR paper's use of Washington Superior Court data.  We also include an extention set of mixed models to Native American populations, with hypothesized interactions with alcohol-related and hunting and fisheries violations to examine if the courtesty stigma and steretype congruence effects found in the Black and Latino models extend to Native American populations.  
@@ -37,7 +39,6 @@ library(car)
 #load data - constructed from MCAO .txt files
 monsanc <- read_csv("~/MonSanc/monsanc.csv") 
 
-#join in crim history and 
 
 #recoding and filtering
 monsanc.short <- monsanc %>%
@@ -72,7 +73,7 @@ monsanc.short <- monsanc.short %>%
   filter(age >= 15) #filtering cases with likely error ages (n=620)
 
 #felony filter
-felony <- monsanc.short %>% filter(charge_degree=="felony")
+felony <- monsanc.short %>% filter(charge_degree=="Felony")
 ```
 
 
@@ -96,7 +97,12 @@ ggplot(subset(felony, total_ff <=2000), aes(x=total_ff)) +
 ## Descriptive Statistics
 
 ```{r,echo=F, results='asis'}
-stargazer(as.data.frame(felony[,c(23,54,56,116,105,106,107,108,109,110,53,111,112,113,114,115,97,80,94)]), 
+stargazer(as.data.frame(felony[,c("total_ff",
+                                  "priors","age",
+                                  "male","white","asian",
+                                  "black","hispanic","nativeam","other.race",
+                                  "trial_flag","violent","alcohol.dui","drug",
+                                  "hunt.fish","other.offense","min_perc","repubvote","lecperc")]), 
           type="latex", style="asr", title="Descriptive Statistics - Felony Data",
           summary=T, covariate.labels=c("Total Fine/Fee", "Priors", "Age", 
                                                   "Male", "White","Asian", "Black", 
@@ -112,7 +118,12 @@ stargazer(as.data.frame(felony[,c(23,54,56,116,105,106,107,108,109,110,53,111,11
 ## Bivariate Correlations
 
 ```{r, include=F}
-corr<-round(cor(felony[,c(96,54,56,116,105,106,107,108,109,110,53,111,112,113,114,115,97,80,94)], use="pairwise.complete.obs", method="pearson" ),2)
+corr<-round(cor(felony[,c("total_ff",
+                                  "priors","age",
+                                  "male","white","asian",
+                                  "black","hispanic","nativeam","other.race",
+                                  "trial_flag","violent","alcohol.dui","drug",
+                                  "hunt.fish","other.offense","min_perc","repubvote","lecperc")], use="pairwise.complete.obs", method="pearson" ),2)
 corr[upper.tri(corr)] <-""
 upper <- as.matrix(corr)
 rownames(upper) <- c("Total Fine/Fee (log)", "Priors", "Age", 
@@ -191,7 +202,7 @@ stargazer(m31f, m32f, m33f, m34f,
                             round(as.numeric(VarCorr(m32f)[["filed_county"]]),2),
                             round(as.numeric(VarCorr(m33f)[["filed_county"]]),2),
                             round(as.numeric(VarCorr(m34f)[["filed_county"]]),2))),
-          omit.stat = c("aic", "bic", "ll"), header=F)
+          omit.stat = c("aic", "bic", "ll"), header=F, align = T)
 ```
 
 ```{r, eval=F, include=F}
@@ -263,7 +274,7 @@ stargazer(m41f, m42f, m43f, m44f,
                                         round(as.numeric(VarCorr(m42f)[["filed_county"]]),2),
                                         round(as.numeric(VarCorr(m43f)[["filed_county"]]),2),
                                         round(as.numeric(VarCorr(m44f)[["filed_county"]]),2))),
-          omit.stat = c("aic", "bic", "ll"), header=F)
+          omit.stat = c("aic", "bic", "ll"), header=F, align = T)
 ```
 
 ```{r, include=F}
@@ -308,7 +319,7 @@ stargazer(m51f, m52f, m53f, m54f,
                                         round(as.numeric(VarCorr(m52f)[["filed_county"]]),2),
                                         round(as.numeric(VarCorr(m53f)[["filed_county"]]),2),
                                         round(as.numeric(VarCorr(m54f)[["filed_county"]]),2))),
-          omit.stat = c("aic", "bic", "ll"), header=F)
+          omit.stat = c("aic", "bic", "ll"), header=F, align=T)
 ```
 
 ```{r, include=F}
@@ -324,7 +335,7 @@ m62f <- lmer(total_ff_log ~ priors+log(age)+male+nativeam+trial_flag+alcohol.dui
 class(m62f) <- "lmerMod" 
 
 m63f <- lmer(total_ff_log ~ priors+log(age)+male+nativeam+trial_flag+alcohol.dui+
-               na_perc+repubvote+lecperc+alcohol.dui:nativeam+hunt.fish:nativeam+(1|filed_county), 
+               na_perc+repubvote+lecperc+alcohol.dui:nativeam+(1|filed_county), 
              REML = F, data = felony)
 class(m63f) <- "lmerMod" 
 
@@ -353,6 +364,6 @@ stargazer(m61f, m62f, m63f, m64f,
                                         round(as.numeric(VarCorr(m62f)[["filed_county"]]),2),
                                         round(as.numeric(VarCorr(m63f)[["filed_county"]]),2),
                                         round(as.numeric(VarCorr(m64f)[["filed_county"]]),2))),
-          omit.stat = c("aic", "bic", "ll"), header=F)
+          omit.stat = c("aic", "bic", "ll"), header=F, align = T)
 ```
 

@@ -6,6 +6,8 @@ output: pdf_document
 fontsize: 11pt
 editor_options: 
   chunk_output_type: console
+header-includes:
+- \usepackage{dcolumn}
 ---
 
 This analysis represents a preliminary attempt to replicate and extend the Harris et. al. ASR paper. The Minnesota data is situated at the case level from 2010-2015.  The full data series extends back to 2004, but VIBES data in the two most populous MN counties, Hennepin and Ramsey, are missing and inconsistent until 2010. Additionally, while data at the conviction level would be more comparable, we do not have data at the conviction level for much of the VIBES data.  This analysis uses the full sample (petty misdemeanor, misdemenor, gross misdemeanor, felony). We also include an extention set of mixed models to Native American populations, with hypothesized interactions with alcohol-related and hunting and fisheries violations to examine if the courtesty stigma and steretype congruence effects found in the Black and Latino models extend to Native American populations.  
