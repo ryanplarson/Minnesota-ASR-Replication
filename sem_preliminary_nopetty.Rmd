@@ -57,12 +57,13 @@ monsanc.short <- monsanc.short %>%
   filter(age >= 15) #filtering cases with likely error ages 
 
 #dropping missing total_ff_log
-monsanc.short <- monsanc.short %>% filter(!is.na(total_ff_log))
+monsanc.short <- monsanc.short %>% filter(!is.na(total_ff_log)) %>%
+  filter(charge_degree!="Petty Misdemeanor")
 ```
 
 ```{r}
 ols <- lm(total_ff_log~black+hispanic+asian+nativeam+other.race+
-           male+log(age)+priors+trial_flag+felony+gross.mis+mis+drug+alcohol.dui+hunt.fish+other.offense+
+           male+log(age)+priors+trial_flag+felony+gross.mis+drug+alcohol.dui+hunt.fish+other.offense+
            min_perc+repubvote+lecperc, data = monsanc.short)
 summary(ols)
 
@@ -71,7 +72,7 @@ summary(ols)
   #equivalent to separate OLS, but more efficient and takes into account error covariance
 
 mv <- lm(cbind(total_ff_log, conf_days)~black+hispanic+asian+nativeam+other.race+
-           male+log(age)+priors+trial_flag+felony+gross.mis+mis+drug+alcohol.dui+hunt.fish+other.offense+
+           male+log(age)+priors+trial_flag+felony+gross.mis+drug+alcohol.dui+hunt.fish+other.offense+
            min_perc+repubvote+lecperc, data = monsanc.short)
 summary(mv)
 ```
@@ -80,10 +81,10 @@ summary(mv)
 #SUR: seemingly unrelated regression
   #same as OLS when covariance matrix is diagonal, or predictors same across equations
 sur <- systemfit(list(total_ff_log~black+hispanic+asian+nativeam+other.race+
-           male+log(age)+priors+felony+gross.mis+mis+drug+alcohol.dui+hunt.fish+other.offense+
+           male+log(age)+priors+felony+gross.mis+drug+alcohol.dui+hunt.fish+other.offense+
            min_perc+repubvote+lecperc, 
                       conf_days~black+hispanic+asian+nativeam+other.race+
-           male+log(age)+priors+trial_flag+felony+gross.mis+mis+drug+alcohol.dui+hunt.fish+other.offense+
+           male+log(age)+priors+trial_flag+felony+gross.mis+drug+alcohol.dui+hunt.fish+other.offense+
            min_perc+repubvote+lecperc), data=monsanc.short)
 summary(sur)
 ```
@@ -96,7 +97,7 @@ tsls <- tsls(total_ff_log~black+hispanic+asian+nativeam+other.race+
            male+log(age)+felony+gross.mis+mis+conf_days+drug+alcohol.dui+hunt.fish+other.offense+
            min_perc+repubvote+lecperc,
            ~black+hispanic+asian+nativeam+other.race+
-           male+log(age)+priors+trial_flag+felony+gross.mis+mis+drug+alcohol.dui+hunt.fish+other.offense+
+           male+log(age)+priors+trial_flag+felony+gross.mis+drug+alcohol.dui+hunt.fish+other.offense+
            min_perc+repubvote+lecperc, data = monsanc.short)
 
 summary(tsls)
