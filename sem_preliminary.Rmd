@@ -11,14 +11,12 @@ header-includes:
 ---
 ```{r, warning=F, include=F, message=F}
 library(readr)
+library(tidyr)
 library(dplyr)
 library(ggplot2)
 library(sem)
 library(systemfit)
 
-#to do
-#rerun endogenous models
-#make pdfs with dropping petty misdemeanors
 
 #load data - constructed from MCAO .txt files
 monsanc <- read_csv("~/MonSanc/monsanc.csv") 
@@ -60,44 +58,125 @@ monsanc.short <- monsanc.short %>%
 monsanc.short <- monsanc.short %>% filter(!is.na(total_ff_log))
 ```
 
+````{r}
+#bar graph - median household income comes from ACS 2017 5-year estimates
+adj <- data.frame(Race = c("Asian", "Black", "Hispanic", "Nat. Am.", "Other", "White"),
+                  race_med_inc = c(71865, 32743, 46232, 36017, 42476, 69069), 
+                  ovr_med_inc = rep(65699, 6))
+
+monsanc.short %>%
+  select(race_impute, total_ff) %>%
+  filter(!is.na(race_impute)) %>%
+  mutate(Race = case_when(
+    race_impute=="asian"~"Asian",
+    race_impute=="black"~"Black",
+    race_impute=="hispanic"~"Hispanic",
+    race_impute=="nat. am."~"Nat. Am.",
+    race_impute=="other"~"Other",
+    race_impute=="white"~"White"
+  )) %>%
+  select(-race_impute) %>%
+  left_join(adj, by = "Race")%>%
+  mutate(race_adj = 1/(race_med_inc/ovr_med_inc)) %>%
+  group_by(Race) %>%
+  summarize(
+    `Raw_USD`= mean(total_ff, na.rm = T),
+    `Adjusted_USD` = mean(total_ff*race_adj, na.rm = T),
+    `Raw_sd` = sd(total_ff, na.rm = T),
+    `Adjusted_sd` = sd(total_ff*race_adj, na.rm=T)
+  ) %>%
+  gather(key = "variable", value= "value", -Race) %>%
+  separate(variable, into = c("adjusted", "stat"), sep = "_") %>%
+  spread(key = "stat", value = "value") %>%
+  mutate(Race = factor(Race, levels = 
+                         c("Nat. Am.", "Hispanic", "White", 
+                           "Other", "Asian", "Black")),
+         `Income Adjusted` = factor(adjusted, levels = c("Raw", "Adjusted"))) %>%
+  select(-adjusted) %>%
+ggplot()+
+  geom_bar(aes(x=Race, y=USD, fill=`Income Adjusted`), 
+           stat="identity", 
+           position = position_dodge2())+
+  labs(title = "Figure 1: Fine/Fee Orders by Race")+
+  scale_fill_manual(values = c("#00AFBB", "#FC4E07"))+
+  theme_minimal()
+
+```
+
 ```{r}
-ols <- lm(total_ff_log~black+hispanic+asian+nativeam+other.race+
-           male+log(age)+priors+trial_flag+felony+gross.mis+mis+drug+alcohol.dui+hunt.fish+other.offense+
-           min_perc+repubvote+lecperc, data = monsanc.short)
-summary(ols)
-
-
 #Multivariate Regression - when all predictors are identical across models
   #equivalent to separate OLS, but more efficient and takes into account error covariance
 
 mv <- lm(cbind(total_ff_log, conf_days)~black+hispanic+asian+nativeam+other.race+
-           male+log(age)+priors+trial_flag+felony+gross.mis+mis+drug+alcohol.dui+hunt.fish+other.offense+
-           min_perc+repubvote+lecperc, data = monsanc.short)
+           male+log(age)+priors+trial_flag+felony+gross.mis+mis+drug+alcohol.dui+hunt.fish+other.offense,
+         data = monsanc.short)
 summary(mv)
+
+#multivariate fixed effects regression
+mv.fe <- lm(cbind(total_ff_log, conf_days)~black+hispanic+asian+nativeam+other.race+
+           male+log(age)+priors+trial_flag+felony+gross.mis+mis+drug+alcohol.dui+hunt.fish+other.offense+
+           as.factor(filed_county)+as.factor(sentence_year), data = monsanc.short)
+summary(mv.fe)
+
+#descriptive stats for mv.fe model 
+monsanc.short$miss <- seq_len(nrow(monsanc.short)) %in% na.action(mv.fe)
+
+#descriptive statistics for variables in analysis
+ds <- monsanc.short %>% 
+  filter(miss==FALSE) %>%
+  select(total_ff, conf_days,
+         white,black,hispanic,asian,nativeam,other.race,
+         male,age,priors,trial_flag,
+         felony,gross.mis,mis, petty.mis,
+         violent,drug,alcohol.dui,hunt.fish,other.offense) %>%
+  gather() %>% 
+  group_by(key) %>% 
+  summarize(
+    mean = round(mean(value),2),
+    sd = round(sd(value),2),
+    min = min(value),
+    max = max(value)
+  )
+
+print(ds, n = Inf)
 ```
 
-```{r}
-#SUR: seemingly unrelated regression
-  #same as OLS when covariance matrix is diagonal, or predictors same across equations
-sur <- systemfit(list(total_ff_log~black+hispanic+asian+nativeam+other.race+
-           male+log(age)+priors+felony+gross.mis+mis+drug+alcohol.dui+hunt.fish+other.offense+
-           min_perc+repubvote+lecperc, 
-                      conf_days~black+hispanic+asian+nativeam+other.race+
-           male+log(age)+priors+trial_flag+felony+gross.mis+mis+drug+alcohol.dui+hunt.fish+other.offense+
-           min_perc+repubvote+lecperc), data=monsanc.short)
-summary(sur)
-```
 
 ```{r}
 #structural equation model
   #2SLS - uses pedicted value of conf days in LFO equation
 
+#first stage
+fs <- lm(conf_days~black+hispanic+asian+nativeam+other.race+
+           male+log(age)+priors+trial_flag+felony+gross.mis+mis+drug+alcohol.dui+hunt.fish+other.offense, 
+         data = monsanc.short)
+summary(fs)
+
 tsls <- tsls(total_ff_log~black+hispanic+asian+nativeam+other.race+
-           male+log(age)+felony+gross.mis+mis+conf_days+drug+alcohol.dui+hunt.fish+other.offense+
-           min_perc+repubvote+lecperc,
+           male+log(age)+felony+gross.mis+mis+conf_days+drug+alcohol.dui+hunt.fish+other.offense,
            ~black+hispanic+asian+nativeam+other.race+
-           male+log(age)+priors+trial_flag+felony+gross.mis+mis+drug+alcohol.dui+hunt.fish+other.offense+
-           min_perc+repubvote+lecperc, data = monsanc.short)
+           male+log(age)+priors+trial_flag+felony+gross.mis+mis+drug+alcohol.dui+hunt.fish+other.offense, 
+           data = monsanc.short)
 
 summary(tsls)
+
+
+#2SLS Fixed Effects Model
+
+#first stage
+fs.fe <- lm(conf_days~black+hispanic+asian+nativeam+other.race+
+           male+log(age)+priors+trial_flag+felony+gross.mis+mis+drug+alcohol.dui+hunt.fish+other.offense+
+           as.factor(filed_county)+as.factor(sentence_year), data = monsanc.short)
+summary(fs.fe)
+
+tsls.fe <- tsls(total_ff_log~conf_days+black+hispanic+asian+nativeam+other.race+male+log(age)+
+                  felony+gross.mis+mis+drug+alcohol.dui+hunt.fish+other.offense+
+                  as.factor(filed_county)+as.factor(sentence_year),
+           ~priors+trial_flag+black+hispanic+asian+nativeam+other.race+
+             male+log(age)+felony+gross.mis+mis+drug+alcohol.dui+hunt.fish+other.offense+
+             as.factor(filed_county)+as.factor(sentence_year), 
+           data = monsanc.short)
+
+summary(tsls.fe)
+
 ```

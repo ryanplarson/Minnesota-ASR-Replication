@@ -16,9 +16,6 @@ library(ggplot2)
 library(sem)
 library(systemfit)
 
-#to do
-#rerun endogenous models
-#make pdfs with dropping petty misdemeanors
 
 #load data - constructed from MCAO .txt files
 monsanc <- read_csv("~/MonSanc/monsanc.csv") 
@@ -62,43 +59,57 @@ monsanc.short <- monsanc.short %>% filter(!is.na(total_ff_log)) %>%
 ```
 
 ```{r}
-ols <- lm(total_ff_log~black+hispanic+asian+nativeam+other.race+
-           male+log(age)+priors+trial_flag+felony+gross.mis+drug+alcohol.dui+hunt.fish+other.offense+
-           min_perc+repubvote+lecperc, data = monsanc.short)
-summary(ols)
-
-
 #Multivariate Regression - when all predictors are identical across models
   #equivalent to separate OLS, but more efficient and takes into account error covariance
 
 mv <- lm(cbind(total_ff_log, conf_days)~black+hispanic+asian+nativeam+other.race+
+           male+log(age)+priors+trial_flag+felony+gross.mis+drug+alcohol.dui+hunt.fish+other.offense,
+         data = monsanc.short)
+summary(mv)
+
+#multivariate fixed effects regression
+mv.fe <- lm(cbind(total_ff_log, conf_days)~black+hispanic+asian+nativeam+other.race+
            male+log(age)+priors+trial_flag+felony+gross.mis+drug+alcohol.dui+hunt.fish+other.offense+
-           min_perc+repubvote+lecperc, data = monsanc.short)
+          as.factor(filed_county)+as.factor(sentence_year), data = monsanc.short)
 summary(mv)
 ```
 
-```{r}
-#SUR: seemingly unrelated regression
-  #same as OLS when covariance matrix is diagonal, or predictors same across equations
-sur <- systemfit(list(total_ff_log~black+hispanic+asian+nativeam+other.race+
-           male+log(age)+priors+felony+gross.mis+drug+alcohol.dui+hunt.fish+other.offense+
-           min_perc+repubvote+lecperc, 
-                      conf_days~black+hispanic+asian+nativeam+other.race+
-           male+log(age)+priors+trial_flag+felony+gross.mis+drug+alcohol.dui+hunt.fish+other.offense+
-           min_perc+repubvote+lecperc), data=monsanc.short)
-summary(sur)
-```
 
 ```{r}
 #structural equation model
   #2SLS - uses pedicted value of conf days in LFO equation
 
+#first stage
+fs <- lm(conf_days~black+hispanic+asian+nativeam+other.race+
+           male+log(age)+priors+trial_flag+felony+gross.mis+drug+alcohol.dui+hunt.fish+other.offense,
+         data = monsanc.short)
+summary(fs)
+
 tsls <- tsls(total_ff_log~black+hispanic+asian+nativeam+other.race+
-           male+log(age)+felony+gross.mis+mis+conf_days+drug+alcohol.dui+hunt.fish+other.offense+
-           min_perc+repubvote+lecperc,
+           male+log(age)+felony+gross.mis+conf_days+drug+alcohol.dui+hunt.fish+other.offense,
            ~black+hispanic+asian+nativeam+other.race+
-           male+log(age)+priors+trial_flag+felony+gross.mis+drug+alcohol.dui+hunt.fish+other.offense+
-           min_perc+repubvote+lecperc, data = monsanc.short)
+           male+log(age)+priors+trial_flag+felony+gross.mis+drug+alcohol.dui+hunt.fish+other.offense, 
+           data = monsanc.short)
 
 summary(tsls)
+
+
+#2SLS Fixed Effects Model
+
+#first stage
+fs.fe <- lm(conf_days~black+hispanic+asian+nativeam+other.race+
+           male+log(age)+priors+trial_flag+felony+gross.mis+drug+alcohol.dui+hunt.fish+other.offense+
+           as.factor(filed_county)+as.factor(sentence_year), data = monsanc.short)
+summary(fs.fe)
+
+tsls.fe <- tsls(total_ff_log~conf_days+black+hispanic+asian+nativeam+other.race+male+log(age)+
+                  felony+gross.mis+drug+alcohol.dui+hunt.fish+other.offense+
+                  as.factor(filed_county)+as.factor(sentence_year),
+           ~priors+trial_flag+black+hispanic+asian+nativeam+other.race+
+             male+log(age)+felony+gross.mis+drug+alcohol.dui+hunt.fish+other.offense+
+             as.factor(filed_county)+as.factor(sentence_year), 
+           data = monsanc.short)
+
+summary(tsls.fe)
+
 ```
