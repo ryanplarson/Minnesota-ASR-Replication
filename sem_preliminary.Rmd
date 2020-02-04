@@ -77,7 +77,7 @@ monsanc.short %>%
   )) %>%
   select(-race_impute) %>%
   left_join(adj, by = "Race")%>%
-  mutate(race_adj = 1/(race_med_inc/ovr_med_inc)) %>%
+  mutate(race_adj = (ovr_med_inc/race_med_inc)) %>%
   group_by(Race) %>%
   summarize(
     `Raw_USD`= mean(total_ff, na.rm = T),
@@ -169,11 +169,14 @@ fs.fe <- lm(conf_days~black+hispanic+asian+nativeam+other.race+
            as.factor(filed_county)+as.factor(sentence_year), data = monsanc.short)
 summary(fs.fe)
 
+
 tsls.fe <- tsls(total_ff_log~conf_days+black+hispanic+asian+nativeam+other.race+male+log(age)+
-                  felony+gross.mis+mis+drug+alcohol.dui+hunt.fish+other.offense+
+                  priors+felony+gross.mis+mis+
+                  drug+alcohol.dui+hunt.fish+other.offense+
                   as.factor(filed_county)+as.factor(sentence_year),
-           ~priors+trial_flag+black+hispanic+asian+nativeam+other.race+
-             male+log(age)+felony+gross.mis+mis+drug+alcohol.dui+hunt.fish+other.offense+
+           ~black+hispanic+asian+nativeam+other.race+male+log(age)+
+             priors+trial_flag+felony+gross.mis+mis+
+             drug+alcohol.dui+hunt.fish+other.offense+
              as.factor(filed_county)+as.factor(sentence_year), 
            data = monsanc.short)
 
