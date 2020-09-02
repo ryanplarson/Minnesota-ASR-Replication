@@ -78,13 +78,14 @@ felony <- monsanc.short %>% filter(charge_degree=="Felony")
 
 #creation of id for MNSG merge 
 felony <- felony %>%
-  mutate(case_short = str_extract(str_sub(current_case_number,start=3), "[0-9]+"))
+  mutate(county_code = str_sub(current_case_number, start=1, end=2),
+         case_short = str_extract(str_sub(current_case_number,start=3), "[0-9]+"))
 
 #joining and munging MNSG data for crim hist/severity measures
 mnsg <- read_csv("~/MonSanc/msgc_crimhistory.csv") %>%
-  select(case_number, severity_conv, chpoints_final)
+  select(case_number, case_county, severity_conv, chpoints_final)
 
-felony <- felony %>% left_join(mnsg, by = c("case_short"="case_number"))
+felony <- felony %>% left_join(mnsg, by = c("county_code"="case_county","case_short"="case_number"))
 ```
 
 
