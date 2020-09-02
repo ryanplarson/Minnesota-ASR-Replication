@@ -35,6 +35,7 @@ library(lme4)
 library(lmerTest)
 library(stargazer)
 library(car)
+library(stringr)
 
 #load data - constructed from MCAO .txt files
 monsanc <- read_csv("~/MonSanc/monsanc.csv") 
@@ -74,6 +75,16 @@ monsanc.short <- monsanc.short %>%
 
 #felony filter
 felony <- monsanc.short %>% filter(charge_degree=="Felony")
+
+#creation of id for MNSG merge 
+felony <- felony %>%
+  mutate(case_short = str_extract(str_sub(current_case_number,start=3), "[0-9]+"))
+
+#joining and munging MNSG data for crim hist/severity measures
+mnsg <- read_csv("~/MonSanc/msgc_crimhistory.csv") %>%
+  select(case_number, severity_conv, chpoints_final)
+
+felony <- felony %>% left_join(mnsg, by = c("case_short"="case_number"))
 ```
 
 
@@ -98,13 +109,13 @@ ggplot(subset(felony, total_ff <=2000), aes(x=total_ff)) +
 
 ```{r,echo=F, results='asis'}
 stargazer(as.data.frame(felony[,c("total_ff",
-                                  "priors","age",
+                                   "severity_conv","chpoints_final","age",
                                   "male","white","asian",
                                   "black","hispanic","nativeam","other.race",
                                   "trial_flag","violent","alcohol.dui","drug",
                                   "hunt.fish","other.offense","min_perc","repubvote","lecperc")]), 
           type="latex", style="asr", title="Descriptive Statistics - Felony Data",
-          summary=T, covariate.labels=c("Total Fine/Fee", "Priors", "Age", 
+          summary=T, covariate.labels=c("Total Fine/Fee", "Severity (Conv.)","Crim. Hist. Pts.", "Age", 
                                                   "Male", "White","Asian", "Black", 
                                                   "Hispanic", "Native Am.", "Other Race", "Trial", 
                                                   "Violent","Alcohol/DUI", "Drug", "Hunt/Fish", 
@@ -119,14 +130,14 @@ stargazer(as.data.frame(felony[,c("total_ff",
 
 ```{r, include=F}
 corr<-round(cor(felony[,c("total_ff",
-                                  "priors","age",
+                                  "severity_conv","chpoints_final","age",
                                   "male","white","asian",
                                   "black","hispanic","nativeam","other.race",
                                   "trial_flag","violent","alcohol.dui","drug",
                                   "hunt.fish","other.offense","min_perc","repubvote","lecperc")], use="pairwise.complete.obs", method="pearson" ),2)
 corr[upper.tri(corr)] <-""
 upper <- as.matrix(corr)
-rownames(upper) <- c("Total Fine/Fee (log)", "Priors", "Age", 
+rownames(upper) <- c("Total Fine/Fee (log)", "Severity (Conv.)","Crim. Hist. Pts.", "Age", 
                                                   "Male", "White","Asian", "Black", 
                                                   "Hispanic", "Native Am.", "Other Race", "Trial", 
                                                   "Violent","Alcohol.DUI", "Drug", "Hunt.Fish", 
@@ -172,11 +183,13 @@ m32f <- lmer(total_ff_log ~ black+hispanic+asian+nativeam+other.race+(1|filed_co
                REML = F, data = felony)
 class(m32f) <- "lmerMod" 
 
-m33f <- lmer(total_ff_log ~ black+hispanic+asian+nativeam+other.race+male+log(age)+priors+trial_flag+
-              drug+alcohol.dui+hunt.fish+other.offense+(1|filed_county), REML = F, data = felony)
+m33f <- lmer(total_ff_log ~ severity_conv+chpoints_final+
+               black+hispanic+asian+nativeam+other.race+male+log(age)+
+               trial_flag+drug+alcohol.dui+hunt.fish+other.offense+(1|filed_county), REML = F, data = felony)
 class(m33f) <- "lmerMod" 
 
-m34f <- lmer(total_ff_log ~ black+hispanic+asian+nativeam+other.race+male+log(age)+priors+trial_flag+
+m34f <- lmer(total_ff_log ~ severity_conv+chpoints_final+
+               black+hispanic+asian+nativeam+other.race+male+log(age)+trial_flag+
               drug+alcohol.dui+hunt.fish+other.offense+
               min_perc+repubvote+lecperc+(1|filed_county), REML = F, data = felony)
 class(m34f) <- "lmerMod" 
@@ -187,8 +200,9 @@ class(m34f) <- "lmerMod"
 ```{r, echo=F, results='asis'}
 stargazer(m31f, m32f, m33f, m34f,
           style = "asr", type = "latex", title = "Harris et. al. ASR Table 3 Replication  - MCAO Felony Data",
-          covariate.labels = c("Black", "Hispanic", "Asian", "Native Am.", "Other Race", 
-                               "Male", "log(Age)", "Priors", "Trial", 
+          covariate.labels = c("Severity Score (Conv.)", "Crim. Hist. Pts.",
+                               "Black", "Hispanic", "Asian", "Native Am.", "Other Race", 
+                               "Male", "log(Age)", "Trial", 
                                "Alcohol.DUI", "Drug", "Hunt.Fish", "Other Offense", "Percent Minority", 
                                "Percent Vote Republican", "Percent Law and Justice"),
           dep.var.labels =  "Total Fine and Fee Order (log)", model.numbers = T,
@@ -236,21 +250,21 @@ r1Var / (r1Var + residVar) #only 11.8% of variation is due to county
 
 ```{r, include=F}
 #table 4 - Black Interactions
-m41f <- lmer(total_ff_log ~ priors+log(age)+male+black+trial_flag+violent+
+m41f <- lmer(total_ff_log ~ severity_conv+chpoints_final+log(age)+male+black+trial_flag+violent+
               black_perc+repubvote+lecperc+(1|filed_county), REML = F, data = felony)
 class(m41f) <- "lmerMod" 
 
-m42f <- lmer(total_ff_log ~ priors+log(age)+male+black+trial_flag+violent+
+m42f <- lmer(total_ff_log ~ severity_conv+chpoints_final+log(age)+male+black+trial_flag+violent+
                black_perc+repubvote+lecperc+black_perc:black+(1|filed_county), 
              REML = F, data = felony)
 class(m42f) <- "lmerMod" 
 
-m43f <- lmer(total_ff_log ~ priors+log(age)+male+black+trial_flag+violent+
+m43f <- lmer(total_ff_log ~ severity_conv+chpoints_final+log(age)+male+black+trial_flag+violent+
                black_perc+repubvote+lecperc+violent:black+(1|filed_county), 
              REML = F, data = felony)
 class(m43f) <- "lmerMod" 
 
-m44f <- lmer(total_ff_log ~ priors+log(age)+male+black+trial_flag+violent+
+m44f <- lmer(total_ff_log ~ severity_conv+chpoints_final+log(age)+male+black+trial_flag+violent+
                black_perc+repubvote+lecperc+violent:black_perc+(1|filed_county), 
              REML = F, data = felony)
 class(m44f) <- "lmerMod" 
@@ -260,7 +274,7 @@ class(m44f) <- "lmerMod"
 ```{r, echo=F, results='asis'}
 stargazer(m41f, m42f, m43f, m44f,
           style = "asr", type = "latex", title = "Harris et. al. ASR Table 4 Replication  - MCAO Felony Data",
-          covariate.labels = c("Priors", "Age", 
+          covariate.labels = c("Severity Score (Conv.)", "Crim. Hist. Pts.", "Age", 
                                "Male",  "Black",  "Trial", 
                                "Violent", "Percent Black", 
                                "Percent Vote Republican", "Percent Law and Justice",
@@ -280,22 +294,22 @@ stargazer(m41f, m42f, m43f, m44f,
 ```{r, include=F}
 #table 5 - Hispanic Interactions
 
-m51f <- lmer(total_ff_log ~ priors+log(age)+male+hispanic+trial_flag+drug+
+m51f <- lmer(total_ff_log ~ severity_conv+chpoints_final+log(age)+male+hispanic+trial_flag+drug+
                hisp_perc+repubvote+lecperc+(1|filed_county), REML = F, data = felony)
 class(m51f) <- "lmerMod" 
 
 
-m52f <- lmer(total_ff_log ~ priors+log(age)+male+hispanic+trial_flag+drug+
+m52f <- lmer(total_ff_log ~ severity_conv+chpoints_final+log(age)+male+hispanic+trial_flag+drug+
                hisp_perc+repubvote+lecperc+hisp_perc:hispanic+(1|filed_county), 
              REML = F, data = felony)
 class(m52f) <- "lmerMod" 
 
-m53f <- lmer(total_ff_log ~ priors+log(age)+male+hispanic+trial_flag+drug+
+m53f <- lmer(total_ff_log ~ severity_conv+chpoints_final+log(age)+male+hispanic+trial_flag+drug+
                hisp_perc+repubvote+lecperc+drug:hispanic+(1|filed_county), 
              REML = F, data = felony)
 class(m53f) <- "lmerMod" 
 
-m54f <- lmer(total_ff_log ~ priors+log(age)+male+hispanic+trial_flag+drug+
+m54f <- lmer(total_ff_log ~ severity_conv+chpoints_final+log(age)+male+hispanic+trial_flag+drug+
                hisp_perc+repubvote+lecperc+drug:hisp_perc+(1|filed_county), 
              REML = F, data = felony)
 class(m54f) <- "lmerMod" 
@@ -305,7 +319,7 @@ class(m54f) <- "lmerMod"
 ```{r, echo=F, results='asis'}
 stargazer(m51f, m52f, m53f, m54f,
           style = "asr", type = "latex", title = "Harris et. al. ASR Table 5 Replication  - MCAO Felony Data",
-          covariate.labels = c("Priors", "Age", 
+          covariate.labels = c("Severity Score (Conv.)", "Crim. Hist. Pts.", "Age", 
                                "Male",  "Hispanic",  "Trial", 
                                "Drug", "Percent Hispanic", 
                                "Percent Vote Republican", "Percent Law and Justice",
@@ -324,22 +338,22 @@ stargazer(m51f, m52f, m53f, m54f,
 
 ```{r, include=F}
 #table "6" - Native American Interactions 
-m61f <- lmer(total_ff_log ~ priors+log(age)+male+nativeam+trial_flag+alcohol.dui+
+m61f <- lmer(total_ff_log ~ severity_conv+chpoints_final+log(age)+male+nativeam+trial_flag+alcohol.dui+
                na_perc+repubvote+lecperc+(1|filed_county), REML = F, data = felony)
 class(m61f) <- "lmerMod" 
 
 
-m62f <- lmer(total_ff_log ~ priors+log(age)+male+nativeam+trial_flag+alcohol.dui+
+m62f <- lmer(total_ff_log ~ severity_conv+chpoints_final+log(age)+male+nativeam+trial_flag+alcohol.dui+
                na_perc+repubvote+lecperc+na_perc:nativeam+(1|filed_county), 
              REML = F, data = felony)
 class(m62f) <- "lmerMod" 
 
-m63f <- lmer(total_ff_log ~ priors+log(age)+male+nativeam+trial_flag+alcohol.dui+
+m63f <- lmer(total_ff_log ~ severity_conv+chpoints_final+log(age)+male+nativeam+trial_flag+alcohol.dui+
                na_perc+repubvote+lecperc+alcohol.dui:nativeam+(1|filed_county), 
              REML = F, data = felony)
 class(m63f) <- "lmerMod" 
 
-m64f <- lmer(total_ff_log ~ priors+log(age)+male+nativeam+trial_flag+alcohol.dui+
+m64f <- lmer(total_ff_log ~ severity_conv+chpoints_final+log(age)+male+nativeam+trial_flag+alcohol.dui+
                na_perc+repubvote+lecperc+alcohol.dui:na_perc+(1|filed_county), 
              REML = F, data = felony)
 class(m64f) <- "lmerMod" 
@@ -349,7 +363,7 @@ class(m64f) <- "lmerMod"
 ```{r, echo=F, results='asis'}
 stargazer(m61f, m62f, m63f, m64f,
           style = "asr", type = "latex", title = "Native American Interactions - MCAO Felony Data",
-          covariate.labels = c("Priors", "Age", 
+          covariate.labels = c("Severity Score (Conv.)", "Crim. Hist. Pts.", "Age", 
                                "Male",  "Native Am.",  "Trial", 
                                "Alcohol.DUI", "Percent NA", 
                                "Percent Vote Republican", "Percent Law and Justice",

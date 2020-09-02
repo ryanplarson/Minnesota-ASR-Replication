@@ -1,4 +1,4 @@
-This is pdfTeX, Version 3.14159265-2.6-1.40.20 (TeX Live 2019) (preloaded format=pdflatex 2019.7.9)  13 DEC 2019 11:53
+This is pdfTeX, Version 3.14159265-2.6-1.40.20 (TeX Live 2019) (preloaded format=pdflatex 2019.7.9)  1 SEP 2020 18:49
 entering extended mode
  restricted \write18 enabled.
  %&-line parsing enabled.
@@ -519,13 +519,7 @@ Package: array 2018/12/30 v2.4k Tabular extension package (FMi)
 \extratabsurround=\skip48
 \backup@length=\skip49
 \ar@cellbox=\box30
-)) (/pkg/software_depot/app/texlive/2019/texmf-dist/tex/latex/titling/titling.s
-ty
-Package: titling 2009/09/04 v2.1d maketitle typesetting
-\thanksmarkwidth=\skip50
-\thanksmargin=\skip51
-\droptitle=\skip52
-) (./ASR_replication_preliminary.aux
+)) (./ASR_replication_preliminary.aux
 
 LaTeX Warning: Label `' multiply defined.
 
@@ -544,33 +538,33 @@ LaTeX Warning: Label `' multiply defined.
 )
 \openout1 = `ASR_replication_preliminary.aux'.
 
-LaTeX Font Info:    Checking defaults for OML/cmm/m/it on input line 95.
-LaTeX Font Info:    ... okay on input line 95.
-LaTeX Font Info:    Checking defaults for T1/cmr/m/n on input line 95.
-LaTeX Font Info:    ... okay on input line 95.
-LaTeX Font Info:    Checking defaults for OT1/cmr/m/n on input line 95.
-LaTeX Font Info:    ... okay on input line 95.
-LaTeX Font Info:    Checking defaults for OMS/cmsy/m/n on input line 95.
-LaTeX Font Info:    ... okay on input line 95.
-LaTeX Font Info:    Checking defaults for OMX/cmex/m/n on input line 95.
-LaTeX Font Info:    ... okay on input line 95.
-LaTeX Font Info:    Checking defaults for U/cmr/m/n on input line 95.
-LaTeX Font Info:    ... okay on input line 95.
-LaTeX Font Info:    Checking defaults for TS1/cmr/m/n on input line 95.
-LaTeX Font Info:    Try loading font information for TS1+cmr on input line 95.
+LaTeX Font Info:    Checking defaults for OML/cmm/m/it on input line 73.
+LaTeX Font Info:    ... okay on input line 73.
+LaTeX Font Info:    Checking defaults for T1/cmr/m/n on input line 73.
+LaTeX Font Info:    ... okay on input line 73.
+LaTeX Font Info:    Checking defaults for OT1/cmr/m/n on input line 73.
+LaTeX Font Info:    ... okay on input line 73.
+LaTeX Font Info:    Checking defaults for OMS/cmsy/m/n on input line 73.
+LaTeX Font Info:    ... okay on input line 73.
+LaTeX Font Info:    Checking defaults for OMX/cmex/m/n on input line 73.
+LaTeX Font Info:    ... okay on input line 73.
+LaTeX Font Info:    Checking defaults for U/cmr/m/n on input line 73.
+LaTeX Font Info:    ... okay on input line 73.
+LaTeX Font Info:    Checking defaults for TS1/cmr/m/n on input line 73.
+LaTeX Font Info:    Try loading font information for TS1+cmr on input line 73.
 (/pkg/software_depot/app/texlive/2019/texmf-dist/tex/latex/base/ts1cmr.fd
 File: ts1cmr.fd 2014/09/29 v2.5h Standard LaTeX font definitions
 )
-LaTeX Font Info:    ... okay on input line 95.
-LaTeX Font Info:    Checking defaults for PD1/pdf/m/n on input line 95.
-LaTeX Font Info:    ... okay on input line 95.
-LaTeX Font Info:    Checking defaults for PU/pdf/m/n on input line 95.
-LaTeX Font Info:    ... okay on input line 95.
-LaTeX Font Info:    Try loading font information for T1+lmr on input line 95.
+LaTeX Font Info:    ... okay on input line 73.
+LaTeX Font Info:    Checking defaults for PD1/pdf/m/n on input line 73.
+LaTeX Font Info:    ... okay on input line 73.
+LaTeX Font Info:    Checking defaults for PU/pdf/m/n on input line 73.
+LaTeX Font Info:    ... okay on input line 73.
+LaTeX Font Info:    Try loading font information for T1+lmr on input line 73.
 (/pkg/software_depot/app/texlive/2019/texmf-dist/tex/latex/lm/t1lmr.fd
 File: t1lmr.fd 2009/10/30 v1.6 Font defs for Latin Modern
 )
-LaTeX Info: Redefining \microtypecontext on input line 95.
+LaTeX Info: Redefining \microtypecontext on input line 73.
 Package microtype Info: Generating PDF output.
 Package microtype Info: Character protrusion enabled (level 2).
 Package microtype Info: Using protrusion set `basicmath'.
@@ -586,7 +580,7 @@ File: mt-cmr.cfg 2013/05/19 v2.2 microtype config. file: Computer Modern Roman
 (RS)
 )
 \AtBeginShipoutBox=\box31
-Package hyperref Info: Link coloring OFF on input line 95.
+Package hyperref Info: Link coloring OFF on input line 73.
 
 (/pkg/software_depot/app/texlive/2019/texmf-dist/tex/latex/hyperref/nameref.sty
 Package: nameref 2016/05/21 v2.44 Cross-referencing by name of section
@@ -597,9 +591,9 @@ Package: gettitlestring 2016/05/16 v1.5 Cleanup title references (HO)
 )
 \c@section@level=\count116
 )
-LaTeX Info: Redefining \ref on input line 95.
-LaTeX Info: Redefining \pageref on input line 95.
-LaTeX Info: Redefining \nameref on input line 95.
+LaTeX Info: Redefining \ref on input line 73.
+LaTeX Info: Redefining \pageref on input line 73.
+LaTeX Info: Redefining \nameref on input line 73.
 (./ASR_replication_preliminary.out) (./ASR_replication_preliminary.out)
 \@outlinefile=\write3
 \openout3 = `ASR_replication_preliminary.out'.
@@ -672,97 +666,98 @@ G,.JBIG2,.JB2,.eps]
 File: epstopdf-sys.cfg 2010/07/13 v1.3 Configuration of (r)epstopdf for TeX Liv
 e
 ))
-<ASR_replication_preliminary_files/figure-latex/unnamed-chunk-2-1.pdf, id=20, 4
-59.7175pt x 317.185pt>
-File: ASR_replication_preliminary_files/figure-latex/unnamed-chunk-2-1.pdf Grap
-hic file (type pdf)
-<use ASR_replication_preliminary_files/figure-latex/unnamed-chunk-2-1.pdf>
-Package pdftex.def Info: ASR_replication_preliminary_files/figure-latex/unnamed
--chunk-2-1.pdf  used on input line 116.
-(pdftex.def)             Requested size: 459.74442pt x 317.20355pt.
-[1
-
-{/pkg/software_depot/app/texlive/2019/texmf-var/fonts/map/pdftex/updmap/pdftex.
-map} <./ASR_replication_preliminary_files/figure-latex/unnamed-chunk-2-1.pdf>]
-LaTeX Font Info:    Try loading font information for OT1+lmr on input line 125.
-
+LaTeX Font Info:    Try loading font information for OT1+lmr on input line 75.
 (/pkg/software_depot/app/texlive/2019/texmf-dist/tex/latex/lm/ot1lmr.fd
 File: ot1lmr.fd 2009/10/30 v1.6 Font defs for Latin Modern
 )
-LaTeX Font Info:    Try loading font information for OML+lmm on input line 125.
-
+LaTeX Font Info:    Try loading font information for OML+lmm on input line 75.
 (/pkg/software_depot/app/texlive/2019/texmf-dist/tex/latex/lm/omllmm.fd
 File: omllmm.fd 2009/10/30 v1.6 Font defs for Latin Modern
 )
-LaTeX Font Info:    Try loading font information for OMS+lmsy on input line 125
-.
+LaTeX Font Info:    Try loading font information for OMS+lmsy on input line 75.
+
 (/pkg/software_depot/app/texlive/2019/texmf-dist/tex/latex/lm/omslmsy.fd
 File: omslmsy.fd 2009/10/30 v1.6 Font defs for Latin Modern
 )
-LaTeX Font Info:    Try loading font information for OMX+lmex on input line 125
-.
+LaTeX Font Info:    Try loading font information for OMX+lmex on input line 75.
+
 (/pkg/software_depot/app/texlive/2019/texmf-dist/tex/latex/lm/omxlmex.fd
 File: omxlmex.fd 2009/10/30 v1.6 Font defs for Latin Modern
 )
 LaTeX Font Info:    External font `lmex10' loaded for size
-(Font)              <10.95> on input line 125.
+(Font)              <12> on input line 75.
 LaTeX Font Info:    External font `lmex10' loaded for size
-(Font)              <8> on input line 125.
+(Font)              <8> on input line 75.
 LaTeX Font Info:    External font `lmex10' loaded for size
-(Font)              <6> on input line 125.
-LaTeX Font Info:    Try loading font information for U+msa on input line 125.
+(Font)              <6> on input line 75.
+LaTeX Font Info:    Try loading font information for U+msa on input line 75.
 (/pkg/software_depot/app/texlive/2019/texmf-dist/tex/latex/amsfonts/umsa.fd
 File: umsa.fd 2013/01/14 v3.01 AMS symbols A
 )
 (/pkg/software_depot/app/texlive/2019/texmf-dist/tex/latex/microtype/mt-msa.cfg
 File: mt-msa.cfg 2006/02/04 v1.1 microtype config. file: AMS symbols (a) (RS)
 )
-LaTeX Font Info:    Try loading font information for U+msb on input line 125.
+LaTeX Font Info:    Try loading font information for U+msb on input line 75.
 (/pkg/software_depot/app/texlive/2019/texmf-dist/tex/latex/amsfonts/umsb.fd
 File: umsb.fd 2013/01/14 v3.01 AMS symbols B
 )
 (/pkg/software_depot/app/texlive/2019/texmf-dist/tex/latex/microtype/mt-msb.cfg
 File: mt-msb.cfg 2005/06/01 v1.0 microtype config. file: AMS symbols (b) (RS)
 )
-Overfull \hbox (54.34218pt too wide) in paragraph at lines 125--150
+<ASR_replication_preliminary_files/figure-latex/unnamed-chunk-2-1.pdf, id=20, 4
+59.7175pt x 317.185pt>
+File: ASR_replication_preliminary_files/figure-latex/unnamed-chunk-2-1.pdf Grap
+hic file (type pdf)
+<use ASR_replication_preliminary_files/figure-latex/unnamed-chunk-2-1.pdf>
+Package pdftex.def Info: ASR_replication_preliminary_files/figure-latex/unnamed
+-chunk-2-1.pdf  used on input line 94.
+(pdftex.def)             Requested size: 459.74442pt x 317.20355pt.
+[1
+
+{/pkg/software_depot/app/texlive/2019/texmf-var/fonts/map/pdftex/updmap/pdftex.
+map} <./ASR_replication_preliminary_files/figure-latex/unnamed-chunk-2-1.pdf>]
+LaTeX Font Info:    External font `lmex10' loaded for size
+(Font)              <10.95> on input line 103.
+
+Overfull \hbox (54.34218pt too wide) in paragraph at lines 103--129
  [][] 
  []
 
 [2]
 LaTeX Font Info:    External font `lmex10' loaded for size
-(Font)              <10> on input line 160.
+(Font)              <10> on input line 139.
 LaTeX Font Info:    External font `lmex10' loaded for size
-(Font)              <7> on input line 160.
+(Font)              <7> on input line 139.
 LaTeX Font Info:    External font `lmex10' loaded for size
-(Font)              <5> on input line 160.
+(Font)              <5> on input line 139.
 
-Overfull \hbox (259.06696pt too wide) in paragraph at lines 160--186
+Overfull \hbox (295.66138pt too wide) in paragraph at lines 139--166
  [][] 
  []
 
 [3]
-Package atveryend Info: Empty hook `BeforeClearDocument' on input line 323.
-[4] [5] [6]
-Package atveryend Info: Empty hook `AfterLastShipout' on input line 323.
+Package atveryend Info: Empty hook `BeforeClearDocument' on input line 307.
+[4] [5] [6] [7]
+Package atveryend Info: Empty hook `AfterLastShipout' on input line 307.
 (./ASR_replication_preliminary.aux)
-Package atveryend Info: Executing hook `AtVeryEndDocument' on input line 323.
-Package atveryend Info: Executing hook `AtEndAfterFileList' on input line 323.
+Package atveryend Info: Executing hook `AtVeryEndDocument' on input line 307.
+Package atveryend Info: Executing hook `AtEndAfterFileList' on input line 307.
 Package rerunfilecheck Info: File `ASR_replication_preliminary.out' has not cha
 nged.
 (rerunfilecheck)             Checksum: 6E671DB3AC89180D7071CFBFDAF6FD1B;665.
 
 LaTeX Warning: There were multiply-defined labels.
 
-Package atveryend Info: Empty hook `AtVeryVeryEnd' on input line 323.
+Package atveryend Info: Empty hook `AtVeryVeryEnd' on input line 307.
  ) 
 Here is how much of TeX's memory you used:
- 12382 strings out of 492609
- 182837 string characters out of 6122887
- 322419 words of memory out of 5000000
- 16087 multiletter control sequences out of 15000+600000
- 54541 words of font info for 76 fonts, out of 8000000 for 9000
+ 12331 strings out of 492609
+ 182084 string characters out of 6122887
+ 323627 words of memory out of 5000000
+ 16038 multiletter control sequences out of 15000+600000
+ 54212 words of font info for 80 fonts, out of 8000000 for 9000
  1141 hyphenation exceptions out of 8191
- 32i,15n,38p,990b,344s stack positions out of 5000i,500n,10000p,200000b,80000s
+ 32i,15n,38p,990b,342s stack positions out of 5000i,500n,10000p,200000b,80000s
 {/pkg/software_depot/app/texlive/2019/texmf-dist/fonts/enc/dvips/lm/lm-ec.enc
 }{/pkg/software_depot/app/texlive/2019/texmf-dist/fonts/enc/dvips/lm/lm-mathsy.
 enc}{/pkg/software_depot/app/texlive/2019/texmf-dist/fonts/enc/dvips/lm/lm-math
@@ -771,15 +766,15 @@ m.enc}</pkg/software_depot/app/texlive/2019/texmf-dist/fonts/type1/public/lm/lm
 bx12.pfb></pkg/software_depot/app/texlive/2019/texmf-dist/fonts/type1/public/lm
 /lmmi10.pfb></pkg/software_depot/app/texlive/2019/texmf-dist/fonts/type1/public
 /lm/lmr10.pfb></pkg/software_depot/app/texlive/2019/texmf-dist/fonts/type1/publ
-ic/lm/lmr17.pfb></pkg/software_depot/app/texlive/2019/texmf-dist/fonts/type1/pu
-blic/lm/lmri10.pfb></pkg/software_depot/app/texlive/2019/texmf-dist/fonts/type1
-/public/lm/lmri12.pfb></pkg/software_depot/app/texlive/2019/texmf-dist/fonts/ty
-pe1/public/lm/lmsy10.pfb></pkg/software_depot/app/texlive/2019/texmf-dist/fonts
-/type1/public/lm/lmsy8.pfb>
-Output written on ASR_replication_preliminary.pdf (6 pages, 127722 bytes).
+ic/lm/lmr12.pfb></pkg/software_depot/app/texlive/2019/texmf-dist/fonts/type1/pu
+blic/lm/lmr17.pfb></pkg/software_depot/app/texlive/2019/texmf-dist/fonts/type1/
+public/lm/lmri10.pfb></pkg/software_depot/app/texlive/2019/texmf-dist/fonts/typ
+e1/public/lm/lmsy10.pfb></pkg/software_depot/app/texlive/2019/texmf-dist/fonts/
+type1/public/lm/lmsy8.pfb>
+Output written on ASR_replication_preliminary.pdf (7 pages, 135760 bytes).
 PDF statistics:
- 105 PDF objects out of 1000 (max. 8388607)
- 85 compressed objects within 1 object stream
- 17 named destinations out of 1000 (max. 500000)
+ 111 PDF objects out of 1000 (max. 8388607)
+ 90 compressed objects within 1 object stream
+ 18 named destinations out of 1000 (max. 500000)
  14374 words of extra memory for PDF output out of 14400 (max. 10000000)
 
