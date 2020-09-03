@@ -168,7 +168,7 @@ stargazer(upper, header=F, title="Pairwise Correlations", font.size="small", col
 
 ## Table 3 Replication 
 
-The table below presents a replication of Table 3 in Harris et. al. 2011 with data using only felony offenses. A few differences are of note: "SRA score" and "offender score", or comparable measures, are not redily available in the MCAO data. We decided to preliminarily use the number of prior offenses as a proxy for "offender score". Additionally, we use a more expansive offense type categorization for our Native American extentions, including  alcohol-related in addition to violent and drug indicators. We run each of the models on a subset of cases consisting of all felony cases, as to make a closer comparison to the superior court data in Washington.
+The table below presents a replication of Table 3 in Harris et. al. 2011 with data using only felony offenses. A few differences are of note: "SRA score" and "offender score", or comparable measures, are not redily available in the MCAO data. We include a criminal history score and severity score from the Minnesota Sentencing Guidelines Commission data, which judges will use in sentencing in MN.  We run each of the models on a subset of cases consisting of all felony cases, as to make a closer comparison to the superior court data in Washington. Question: In the ASR paper, there are two offense type binary measures which are described as the following: "Drug Offense is a dummy equal to 1 for drug offenses, Other Offense is a dummy equal to 1 for nondrug offenses". What is the referent in the ASR model? For now, I have left non-drug offenses as the referent.
 
 ```{r, include=F}
 #some checks
