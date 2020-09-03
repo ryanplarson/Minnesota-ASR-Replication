@@ -86,6 +86,17 @@ mnsg <- read_csv("~/MonSanc/msgc_crimhistory.csv") %>%
   select(case_number, case_county, severity_conv, chpoints_final)
 
 felony <- felony %>% left_join(mnsg, by = c("county_code"="case_county","case_short"="case_number"))
+
+#Missing from merge each side
+miss.monsanc <- felony %>% anti_join(mnsg, by = c("county_code"="case_county","case_short"="case_number")) %>%
+  select(current_case_number)
+
+miss.mnsg <- mnsg %>% anti_join(felony, by = c("case_county"="county_code","case_number"="case_short")) %>%
+  select(case_county, case_number)
+
+write.csv(miss.monsanc, "~/MonSanc/mcao_no_mnsg_match.csv")
+write.csv(miss.mnsg, "~/MonSanc/mnsg_no_mcao_match.csv")
+
 ```
 
 
@@ -184,15 +195,14 @@ m32f <- lmer(total_ff_log ~ black+hispanic+asian+nativeam+other.race+(1|filed_co
                REML = F, data = felony)
 class(m32f) <- "lmerMod" 
 
-m33f <- lmer(total_ff_log ~ severity_conv+chpoints_final+
-               black+hispanic+asian+nativeam+other.race+male+log(age)+
-               trial_flag+drug+alcohol.dui+hunt.fish+other.offense+(1|filed_county), REML = F, data = felony)
+m33f <- lmer(total_ff_log ~ severity_conv+chpoints_final+log(age)+male+
+               black+hispanic+asian+nativeam+other.race+
+               trial_flag+drug+(1|filed_county), REML = F, data = felony)
 class(m33f) <- "lmerMod" 
 
 m34f <- lmer(total_ff_log ~ severity_conv+chpoints_final+
                black+hispanic+asian+nativeam+other.race+male+log(age)+trial_flag+
-              drug+alcohol.dui+hunt.fish+other.offense+
-              min_perc+repubvote+lecperc+(1|filed_county), REML = F, data = felony)
+              drug+min_perc+repubvote+lecperc+(1|filed_county), REML = F, data = felony)
 class(m34f) <- "lmerMod" 
 
 ```
@@ -202,9 +212,10 @@ class(m34f) <- "lmerMod"
 stargazer(m31f, m32f, m33f, m34f,
           style = "asr", type = "latex", title = "Harris et. al. ASR Table 3 Replication  - MCAO Felony Data",
           covariate.labels = c("Severity Score (Conv.)", "Crim. Hist. Pts.",
+                               "Ln Age","Male",
                                "Black", "Hispanic", "Asian", "Native Am.", "Other Race", 
-                               "Male", "log(Age)", "Trial", 
-                               "Alcohol.DUI", "Drug", "Hunt.Fish", "Other Offense", "Percent Minority", 
+                                 "Trial", 
+                                "Drug", "Percent Minority", 
                                "Percent Vote Republican", "Percent Law and Justice"),
           dep.var.labels =  "Total Fine and Fee Order (log)", model.numbers = T,
           add.lines = list(c("L1 Variance", 
@@ -216,7 +227,9 @@ stargazer(m31f, m32f, m33f, m34f,
                             round(as.numeric(VarCorr(m31f)[["filed_county"]]),2),
                             round(as.numeric(VarCorr(m32f)[["filed_county"]]),2),
                             round(as.numeric(VarCorr(m33f)[["filed_county"]]),2),
-                            round(as.numeric(VarCorr(m34f)[["filed_county"]]),2))),
+                            round(as.numeric(VarCorr(m34f)[["filed_county"]]),2)),
+                           c("Level 1 N", dim(m31f@frame)[1],dim(m32f@frame)[1],dim(m33f@frame)[1],dim(m34f@frame)[1]),
+                           c("Level 2 N", m31f@Gp[2], m32f@Gp[2], m33f@Gp[2], m34f@Gp[2])),
           omit.stat = c("aic", "bic", "ll"), header=F, align = T)
 ```
 
@@ -275,7 +288,7 @@ class(m44f) <- "lmerMod"
 ```{r, echo=F, results='asis'}
 stargazer(m41f, m42f, m43f, m44f,
           style = "asr", type = "latex", title = "Harris et. al. ASR Table 4 Replication  - MCAO Felony Data",
-          covariate.labels = c("Severity Score (Conv.)", "Crim. Hist. Pts.", "Age", 
+          covariate.labels = c("Severity Score (Conv.)", "Crim. Hist. Pts.", "Ln Age", 
                                "Male",  "Black",  "Trial", 
                                "Violent", "Percent Black", 
                                "Percent Vote Republican", "Percent Law and Justice",
@@ -288,7 +301,9 @@ stargazer(m41f, m42f, m43f, m44f,
                                         round(as.numeric(VarCorr(m41f)[["filed_county"]]),2),
                                         round(as.numeric(VarCorr(m42f)[["filed_county"]]),2),
                                         round(as.numeric(VarCorr(m43f)[["filed_county"]]),2),
-                                        round(as.numeric(VarCorr(m44f)[["filed_county"]]),2))),
+                                        round(as.numeric(VarCorr(m44f)[["filed_county"]]),2)),
+                           c("Level 1 N", dim(m41f@frame)[1],dim(m42f@frame)[1],dim(m43f@frame)[1],dim(m44f@frame)[1]),
+                           c("Level 2 N", m41f@Gp[2], m42f@Gp[2], m43f@Gp[2], m44f@Gp[2])),
           omit.stat = c("aic", "bic", "ll"), header=F, align = T)
 ```
 
@@ -320,7 +335,7 @@ class(m54f) <- "lmerMod"
 ```{r, echo=F, results='asis'}
 stargazer(m51f, m52f, m53f, m54f,
           style = "asr", type = "latex", title = "Harris et. al. ASR Table 5 Replication  - MCAO Felony Data",
-          covariate.labels = c("Severity Score (Conv.)", "Crim. Hist. Pts.", "Age", 
+          covariate.labels = c("Severity Score (Conv.)", "Crim. Hist. Pts.", "Ln Age", 
                                "Male",  "Hispanic",  "Trial", 
                                "Drug", "Percent Hispanic", 
                                "Percent Vote Republican", "Percent Law and Justice",
@@ -333,7 +348,9 @@ stargazer(m51f, m52f, m53f, m54f,
                                         round(as.numeric(VarCorr(m51f)[["filed_county"]]),2),
                                         round(as.numeric(VarCorr(m52f)[["filed_county"]]),2),
                                         round(as.numeric(VarCorr(m53f)[["filed_county"]]),2),
-                                        round(as.numeric(VarCorr(m54f)[["filed_county"]]),2))),
+                                        round(as.numeric(VarCorr(m54f)[["filed_county"]]),2)),
+                           c("Level 1 N", dim(m51f@frame)[1],dim(m52f@frame)[1],dim(m53f@frame)[1],dim(m54f@frame)[1]),
+                           c("Level 2 N", m51f@Gp[2], m52f@Gp[2], m53f@Gp[2], m54f@Gp[2])),
           omit.stat = c("aic", "bic", "ll"), header=F, align=T)
 ```
 
@@ -364,7 +381,7 @@ class(m64f) <- "lmerMod"
 ```{r, echo=F, results='asis'}
 stargazer(m61f, m62f, m63f, m64f,
           style = "asr", type = "latex", title = "Native American Interactions - MCAO Felony Data",
-          covariate.labels = c("Severity Score (Conv.)", "Crim. Hist. Pts.", "Age", 
+          covariate.labels = c("Severity Score (Conv.)", "Crim. Hist. Pts.", "Ln Age", 
                                "Male",  "Native Am.",  "Trial", 
                                "Alcohol.DUI", "Percent NA", 
                                "Percent Vote Republican", "Percent Law and Justice",
@@ -378,7 +395,9 @@ stargazer(m61f, m62f, m63f, m64f,
                                         round(as.numeric(VarCorr(m61f)[["filed_county"]]),2),
                                         round(as.numeric(VarCorr(m62f)[["filed_county"]]),2),
                                         round(as.numeric(VarCorr(m63f)[["filed_county"]]),2),
-                                        round(as.numeric(VarCorr(m64f)[["filed_county"]]),2))),
+                                        round(as.numeric(VarCorr(m64f)[["filed_county"]]),2)),
+                           c("Level 1 N", dim(m61f@frame)[1],dim(m62f@frame)[1],dim(m63f@frame)[1],dim(m64f@frame)[1]),
+                           c("Level 2 N", m61f@Gp[2], m62f@Gp[2], m63f@Gp[2], m64f@Gp[2])),
           omit.stat = c("aic", "bic", "ll"), header=F, align = T)
 ```
 
