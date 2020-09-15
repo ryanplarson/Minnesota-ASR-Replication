@@ -13,6 +13,7 @@ header-includes:
 library(readr)
 library(readxl)
 library(tidyr)
+library(stringr)
 library(dplyr)
 library(ggplot2)
 library(sem)
@@ -62,17 +63,31 @@ monsanc.short <- monsanc.short %>%
 
 #dropping missing total_ff_log
 monsanc.short <- monsanc.short %>% filter(!is.na(total_ff_log))%>%
-  filter(charge_degree!="Petty Misdemeanor")
+  filter(charge_degree!="Petty Misdemeanor") #dropping petty misdemeanor-exclusive cases
 
 #joining and munging capacity data
 capacity <- read_xlsx("~/MonSanc/ASR Replication/Minnesota-ASR-Replication/capacity.xlsx") %>%
   filter(year >= 2010 & year <= 2018 & state=="MN") %>% 
   select(county_name, year, total_jail_pop, jail_rated_capacity) %>% 
   mutate(cap_ratio = total_jail_pop/jail_rated_capacity) %>%
-  mutate(cap_ratio = ifelse(is.nan(cap_ratio), 1, cap_ratio)) #check this
+  mutate(cap_ratio = ifelse(is.nan(cap_ratio), 1, cap_ratio))
 
 monsanc.short <- monsanc.short %>% 
   left_join(capacity, by = c("filed_county"="county_name", "sentence_year"="year"))
+
+#felony level data, merging MNSG vars
+monsanc.felony <- monsanc.short %>%
+  filter(charge_degree=="Felony") %>%
+  mutate(county_code = str_sub(current_case_number, start=1, end=2),
+         case_short = str_extract(str_sub(current_case_number,start=3), "[0-9]+"))
+
+mnsg <- read_csv("~/MonSanc/msgc_crimhistory.csv") %>%
+  select(case_number, case_county, severity_conv, chpoints_final) %>%
+  distinct(case_county, case_number, .keep_all = T)
+
+
+monsanc.felony <- monsanc.felony %>% 
+  left_join(mnsg, by = c("county_code"="case_county","case_short"="case_number"))
 ```
 
 ```{r}
@@ -232,4 +247,53 @@ first_stage <- lm(conf_minus_stayed_log~cap_ratio+
                   data=monsanc.short[monsanc.short$missiv==F,])
 
 waldtest(first_stage, .~.-cap_ratio)
+```
+
+# Felony Level Analysis
+
+```{r}
+mv.fe.f <- lm(cbind(total_ff_log, conf_minus_stayed_log)~black+hispanic+asian+nativeam+other.race+
+           male+log(age)+priors+perc_credit+trial_flag+severity_conv+chpoints_final+
+             drug+alcohol.dui+hunt.fish+other.offense+
+           as.factor(filed_county)+as.factor(sentence_year), data = monsanc.felony)
+summary(mv.fe.f)
+
+#FE instrumental Variables Regression 
+iv.fe.f <- ivreg(total_ff_log~conf_minus_stayed_log+
+                 black+hispanic+asian+nativeam+other.race+male+log(age)+
+                  priors+perc_credit+trial_flag+severity_conv+chpoints_final+
+                  drug+alcohol.dui+hunt.fish+other.offense+
+                  as.factor(filed_county)+as.factor(sentence_year)|
+                 cap_ratio+black+hispanic+asian+nativeam+other.race+male+log(age)+
+                  priors+perc_credit+trial_flag+severity_conv+chpoints_final+
+                  drug+alcohol.dui+hunt.fish+other.offense+
+                  as.factor(filed_county)+as.factor(sentence_year), 
+           data = monsanc.felony)
+
+summary(iv.fe.f, diagnostics=T)
+
+monsanc.felony$missiv <- seq_len(nrow(monsanc.felony)) %in% na.action(iv.fe.f)
+
+#FE OLS
+fe.ols.f <- lm(total_ff_log~conf_minus_stayed_log+
+                  black+hispanic+asian+nativeam+other.race+male+log(age)+
+                  priors+perc_credit+trial_flag+severity_conv+chpoints_final+
+                  drug+alcohol.dui+hunt.fish+other.offense+
+               as.factor(filed_county)+as.factor(sentence_year),
+             data = monsanc.felony[monsanc.felony$missiv==F,])
+
+summary(fe.ols.f)
+
+
+#IV F test
+# First Stage
+first_stage.f <- lm(conf_minus_stayed_log~cap_ratio+
+                  black+hispanic+asian+nativeam+other.race+male+log(age)+
+                  priors+perc_credit+trial_flag+severity_conv+chpoints_final+
+                  drug+alcohol.dui+hunt.fish+other.offense+
+                  as.factor(filed_county)+as.factor(sentence_year),
+                  data=monsanc.felony[monsanc.felony$missiv==F,])
+
+waldtest(first_stage.f, .~.-cap_ratio)
+
 ```
