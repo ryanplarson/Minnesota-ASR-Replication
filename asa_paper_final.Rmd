@@ -25,7 +25,7 @@ library(AER)
 #load data - constructed from MCAO .txt files
 monsanc <- read_csv("~/MonSanc/monsanc.csv") 
 
-#recoding and filtering, topcode
+#recoding and filtering
 monsanc.short <- monsanc %>%
   mutate(total_ff = total_ff*adj, #adjust dollars to Jan. 2018
          total_ff_stand = scale(total_ff),
@@ -55,6 +55,7 @@ monsanc.short <- monsanc %>%
   mutate(race_impute = relevel(factor(race_impute, ordered = F), ref = "white"),
          charge_degree = relevel(factor(charge_degree, ordered = F), ref = "Misdemeanor"),
          charge_offense = relevel(factor(charge_offense, ordered = F), ref = "violent"),
+         filed_district = relevel(factor(ifelse(filed_district=="02","04",filed_district), ordered = F), ref = "04"), 
          felony = ifelse(charge_degree=="Felony", 1, 0), 
          gross.mis = ifelse(charge_degree=="Gross Misdemeanor", 1, 0),
          mis = ifelse(charge_degree=="Misdemeanor", 1, 0),
@@ -72,9 +73,9 @@ monsanc.short <- monsanc %>%
          hunt.fish = ifelse(charge_offense=="hunt/fish", 1, 0),
          other.offense = ifelse(charge_offense=="other", 1, 0),
          male = ifelse(gender_impute=="M", 1,0)) %>%
-  mutate(conf_minus_stayed_ts = ifelse(conf_minus_stayed-time_served <0, 0, conf_minus_stayed-time_served),
+  mutate(conf_minus_stayed_ts = ifelse(conf_minus_stayed-credit_days <0, 0, conf_minus_stayed-credit_days),
          conf_minus_stayed_ts_log = log((conf_minus_stayed_ts+1)),
-         time_served = ifelse(time_served < 0, 0, time_served))
+         perc_credit = ifelse(perc_credit > 100, 100, perc_credit)) 
 
 #joining and munging capacity data
 capacity <- read_xlsx("~/MonSanc/ASR Replication/Minnesota-ASR-Replication/capacity.xlsx") %>%
@@ -92,13 +93,14 @@ table(monsanc.short$pubdef, monsanc.short$attorney, useNA = "always") #no lawyer
 monsanc.short <- monsanc.short %>%
   mutate(pubdef = ifelse(is.na(pubdef), "no", pubdef))
 
-#listwise deletion of missing data
+#listwise deletion of missing data, restrict for felonies and misdemeanors
 monsanc.short <- monsanc.short  %>%
   drop_na(total_ff_log,conf_minus_stayed_log,
                  black,hispanic,asian,nativeam,other.race,race.miss,male,age,
-                  priors,perc_credit,trial_flag,felony,gross.mis,
+                  priors,perc_credit,trial_flag,felony,gross.mis, filed_district, 
                   drug,alcohol.dui,other.offense,filed_county,sentence_year, cap_ratio,
-          time_served, conf_minus_stayed_ts, conf_minus_stayed_ts_log)
+          time_served, conf_minus_stayed_ts, conf_minus_stayed_ts_log) %>%
+  filter(charge_degree=="Felony"|charge_degree=="Gross Misdemeanor")
 ```
 
 ```{r}
@@ -125,7 +127,7 @@ package <- monsanc %>%
 # Analysis with Misdemeanor, Gross Misdemeanor, and Felony Cases
 
 ```{r, message=FALSE}
-#bar graph - median household income comes from ACS 2017 5-year estimates
+#MS bar graph - median household income comes from ACS 2017 5-year estimates
 adj <- data.frame(Race = c("Asian", "Black", "Hispanic", "Nat. Am.", "Other", "White"),
                   race_med_inc = c(71865, 32743, 46232, 36017, 42476, 69069), 
                   ovr_med_inc = rep(65699, 6))
@@ -187,8 +189,7 @@ monsanc.short %>%
   separate(variable, into = c("adjusted", "stat"), sep = "_") %>%
   spread(key = "stat", value = "value") %>%
   mutate(Race = factor(Race, levels = 
-                         c("Asian", "White", "Hispanic",  
-                           "Nat. Am.", "Other",  "Black")),
+                         c("White",  "Hispanic", "Nat. Am.", "Other","Asian", "Black")),
          `Income Adjusted` = factor(adjusted, levels = c("Raw", "Adjusted"))) %>%
   select(-adjusted) %>%
 ggplot()+
@@ -228,15 +229,14 @@ monsanc.short %>%
   separate(variable, into = "stat", sep = "_") %>%
   spread(key = "stat", value = "value") %>%
   mutate(Race = factor(Race, levels = 
-                          c("Asian", "White", "Hispanic",  
-                           "Nat. Am.", "Other",  "Black"))
+                          c("White",  "Hispanic", "Nat. Am.", "Other","Asian", "Black"))
   ) %>%
 ggplot()+
   geom_bar(aes(x=Race, y=`Incarceration Days`),
            fill = "grey",
            stat="identity", 
            position = position_dodge2())+
-  geom_text(aes(x=Race, y=`Incarceration Days`+.5,
+  geom_text(aes(x=Race, y=`Incarceration Days`+7,
               label = round(`Incarceration Days`,0)), 
           position = position_dodge2(width = 1))+
   labs(title = "Figure 2: Incarceration Length by Race")+
@@ -269,8 +269,7 @@ monsanc.short %>%
   separate(variable, into = "stat", sep = "_") %>%
   spread(key = "stat", value = "value") %>%
   mutate(Race = factor(Race, levels = 
-                          c("Asian","White", "Hispanic",  
-                           "Nat. Am.", "Other",  "Black"))
+                          c("White",  "Hispanic", "Nat. Am.", "Other","Asian", "Black"))
   ) %>%
 ggplot()+
   geom_bar(aes(x=Race, y=`Probation Days`),
@@ -295,21 +294,48 @@ ggsave("figure_3.png", device = "png")
 
 #multivariate regression
 mv <- lm(cbind(log(total_ff+1), log(conf_minus_stayed_ts_log+1), log(prob_days+1))~
-              race_impute+gender_impute+log(age)+priors+pubdef+perc_credit+time_served+trial_flag+charge_degree+
-              drug+alcohol.dui+other.offense, data = monsanc.short)
+              race_impute+gender_impute+log(age)+priors+pubdef+credit_days+trial_flag+charge_degree+
+              drug+alcohol.dui+other.offense+filed_district, data = monsanc.short)
 summary(mv)
+
+#testing differences between coefficients
+library(systemfit)
+
+#model formulas
+lforeg <- total_ff_log~race_impute+gender_impute+log(age)+priors+pubdef+credit_days+trial_flag+charge_degree+drug+alcohol.dui+other.offense+filed_district
+confreg <- conf_days_log~race_impute+gender_impute+log(age)+priors+pubdef+credit_days+trial_flag+charge_degree+drug+alcohol.dui+other.offense+filed_district
+probreg <- prob_days_log~race_impute+gender_impute+log(age)+priors+pubdef+credit_days+trial_flag+charge_degree+drug+alcohol.dui+other.offense+filed_district
+
+fitsur <- systemfit(list(lforeg = lforeg, confreg = confreg, probreg = probreg), data=monsanc.short, method="SUR")
+summary(fitsur)
+
+library(multcomp)
+tests <- glht(fitsur, linfct = c("lforeg_race_imputeblack - confreg_race_imputeblack = 0",
+                                 "`lforeg_race_imputenat. am.` - `confreg_race_imputenat. am.` = 0",
+                                 "lforeg_race_imputehispanic - confreg_race_imputehispanic = 0",
+                                 "lforeg_race_imputeblack - probreg_race_imputeblack = 0",
+                                 "`lforeg_race_imputenat. am.` - `probreg_race_imputenat. am.` = 0",
+                                 "lforeg_race_imputehispanic - probreg_race_imputehispanic = 0",
+                                 "confreg_race_imputeblack - probreg_race_imputeblack = 0",
+                                 "`confreg_race_imputenat. am.` - `probreg_race_imputenat. am.` = 0",
+                                 "confreg_race_imputehispanic - probreg_race_imputehispanic = 0"))
+
+summary(tests, test = adjusted("holm")) 
+
 
 
 #predictions for different hypothetical cases
 library(emmeans)
 
-pred <- emmeans(mv, ~race_impute|Type, mult.name = "Type", 
-                weights="proportional", type = "response") %>%
+pred_raw <- emmeans(mv, ~race_impute|Type, mult.name = "Type", 
+                weights="proportional", type = "response") 
+
+pred <- pred_raw %>%
   as.data.frame() %>%
   mutate(Type = case_when(
     Type==1~"LFO ($)",
-    Type==2~"Incarceration (Hours)",
-    Type==3~"Probation (Days)"),
+    Type==2~"Incarceration (Days)",
+    Type==3~"Probation (Months)"),
   race_impute = case_when(
     race_impute=="asian"~"Asian",
     race_impute=="black"~"Black",
@@ -320,18 +346,17 @@ pred <- emmeans(mv, ~race_impute|Type, mult.name = "Type",
     race_impute=="missing"~"Missing")) %>%
   filter(race_impute!="Missing") %>%
   mutate(race_impute = factor(race_impute, levels = 
-                         c("Asian", "White", "Hispanic",  
-                           "Nat. Am.", "Other",  "Black")),
-         response = ifelse(Type=="LFO ($)", response/10, response),
-         lower.CL = ifelse(Type=="LFO ($)", lower.CL/10, lower.CL),
-         upper.CL = ifelse(Type=="LFO ($)", upper.CL/10, upper.CL)) %>%
-  mutate(response = ifelse(Type=="Probation (Days)", response, response),
-         lower.CL = ifelse(Type=="Probation (Days)", lower.CL, lower.CL),
-         upper.CL = ifelse(Type=="Probation (Days)", upper.CL, upper.CL),
-         response = ifelse(Type=="Incarceration (Hours)", response*24, response),
-         lower.CL = ifelse(Type=="Incarceration (Hours)", lower.CL*24, lower.CL),
-         upper.CL = ifelse(Type=="Incarceration (Hours)", upper.CL*24, upper.CL),
-         Type = factor(Type, levels = c("LFO ($)", "Incarceration (Hours)", "Probation (Days)")))
+                         c("White",  "Hispanic", "Nat. Am.", "Other","Asian", "Black")),
+         response = ifelse(Type=="LFO ($)", response/100, response),
+         lower.CL = ifelse(Type=="LFO ($)", lower.CL/100, lower.CL),
+         upper.CL = ifelse(Type=="LFO ($)", upper.CL/100, upper.CL)) %>%
+  mutate(response = ifelse(Type=="Probation (Months)", response/30, response),
+         lower.CL = ifelse(Type=="Probation (Months)", lower.CL/30, lower.CL),
+         upper.CL = ifelse(Type=="Probation (Months)", upper.CL/30, upper.CL),
+         response = ifelse(Type=="Incarceration (Days)", response, response),
+         lower.CL = ifelse(Type=="Incarceration (Days)", lower.CL, lower.CL),
+         upper.CL = ifelse(Type=="Incarceration (Days)", upper.CL, upper.CL),
+         Type = factor(Type, levels = c("LFO ($)", "Incarceration (Days)", "Probation (Months)")))
 
   
 ggplot(pred, aes(x=race_impute, y=response, fill=Type))+
@@ -341,8 +366,8 @@ ggplot(pred, aes(x=race_impute, y=response, fill=Type))+
                 width = .5, 
                 position = position_dodge(.9))+
   scale_fill_manual(values = c("#00AFBB", "grey", "orange"))+
-   scale_y_continuous(name = "Hours/Days", limits = c(0,30),
-    sec.axis = sec_axis( trans=~.*10, name="USD"))+
+   scale_y_continuous(name = "Days/Months",
+    sec.axis = sec_axis( trans=~.*100, name="USD"))+
   labs(title = "Figure 4: Estimated Marginal Punishment Packages",
        x = "Race")+
   theme_minimal()+
@@ -359,7 +384,7 @@ ds <- monsanc.short %>%
   filter(miss==FALSE) %>%
   select(total_ff, conf_minus_stayed_ts, prob_days,
          white,black,hispanic,asian,nativeam,other.race, race.miss,
-         male,age,priors,trial_flag, time_served, perc_credit, pubdef,
+         male,age,priors,trial_flag, credit_days, pubdef,
          felony,gross.mis,mis, petty.mis,
          violent,drug,alcohol.dui,other.offense, 
          cap_ratio) %>%
@@ -383,27 +408,176 @@ print(ds, n = Inf)
 #LFO
 iv.ff <- ivreg(total_ff_log~conf_minus_stayed_ts_log+
                  black+hispanic+asian+nativeam+other.race+race.miss+male+log(age)+
-                  priors+pubdef+perc_credit+time_served+trial_flag+
-                 charge_degree+drug+alcohol.dui+other.offense|
+                    priors+pubdef+credit_days+trial_flag+
+                 charge_degree+drug+alcohol.dui+other.offense+filed_district|
               .-conf_minus_stayed_ts_log+cap_ratio, 
            data = monsanc.short)
 
 summary(iv.ff, diagnostics=T)
 
 
-
 fs.ff <- lm(conf_minus_stayed_ts_log~black+hispanic+asian+nativeam+other.race+race.miss+male+log(age)+
                   priors+perc_credit+time_served+trial_flag+felony+gross.mis+
-                  drug+alcohol.dui+other.offense,
+                  drug+alcohol.dui+other.offense+cap_ratio,
             data = monsanc.short)
 
 #Probation
 iv.prob <- ivreg(prob_days_log~conf_minus_stayed_ts_log+
                  black+hispanic+asian+nativeam+other.race+race.miss+male+log(age)+
-                  priors+pubdef+perc_credit+time_served+trial_flag+felony+gross.mis+
-                  drug+alcohol.dui+other.offense| 
+                  priors+pubdef+credit_days+trial_flag+gross.mis+
+                  drug+alcohol.dui+other.offense+filed_district| 
               .-conf_minus_stayed_ts_log+cap_ratio, 
            data = monsanc.short)
+
+summary(iv.prob, diagnostics=T)
+
+
+#testing betweeen race coefficients
+probreg <- prob_days_log~conf_minus_stayed_ts_log+
+                 black+hispanic+asian+nativeam+other.race+race.miss+male+log(age)+
+                  priors+pubdef+credit_days+trial_flag+gross.mis+
+                  drug+alcohol.dui+other.offense+filed_district
+
+lforeg <- total_ff_log~conf_minus_stayed_ts_log+
+                 black+hispanic+asian+nativeam+other.race+race.miss+male+log(age)+
+                  priors+pubdef+credit_days+trial_flag+gross.mis+
+                  drug+alcohol.dui+other.offense+filed_district
+
+system <- list(probreg = probreg, lforeg = lforeg)
+iv <- ~ cap_ratio+
+                 black+hispanic+asian+nativeam+other.race+race.miss+male+log(age)+
+                  priors+pubdef+credit_days+trial_flag+gross.mis+
+                  drug+alcohol.dui+other.offense+filed_district
+
+iv.fit <- systemfit(system, inst = iv, data = monsanc.short, method = "3SLS")
+
+tests.iv <- glht(iv.fit, linfct = c("lforeg_conf_minus_stayed_ts_log - probreg_conf_minus_stayed_ts_log = 0",
+                                 "lforeg_black - probreg_black = 0",
+                                 "lforeg_nativeam - probreg_nativeam = 0",
+                                 "lforeg_hispanic - probreg_hispanic = 0"))
+
+summary(tests.iv, test = adjusted("holm"))
+```
+
+# Sensitivity Analyses
+
+```{r}
+monsanc.short.fel <- monsanc.short %>% filter(charge_degree=="Felony")
+monsanc.short.gm <- monsanc.short %>% filter(charge_degree=="Gross Misdemeanor")
+monsanc.short.mis <- monsanc.short %>% filter(charge_degree=="Misdemeanor")
+monsanc.short.fel.gm <- monsanc.short %>% filter(charge_degree=="Felony"|charge_degree=="Gross Misdemeanor")
+
+#felony-gross misdemeanor
+mv.fel.gm <- lm(cbind(log(total_ff+1), log(conf_minus_stayed_ts_log+1), log(prob_days+1))~
+              race_impute+gender_impute+log(age)+priors+pubdef+credit_days+trial_flag+charge_degree+
+              drug+alcohol.dui+other.offense+filed_district, data = monsanc.short.fel.gm)
+summary(mv.fel.gm)
+
+iv.ff.fel.gm <- ivreg(total_ff_log~conf_minus_stayed_ts_log+
+                 black+hispanic+asian+nativeam+other.race+race.miss+male+log(age)+
+                    priors+pubdef+credit_days+trial_flag+
+                 charge_degree+drug+alcohol.dui+other.offense+filed_district|
+              .-conf_minus_stayed_ts_log+cap_ratio, 
+           data = monsanc.short.fel.gm)
+
+summary(iv.ff.fel.gm, diagnostics=T) #this is the one
+
+#felony
+#felony level data, merging MNSG vars
+monsanc.short.fel <- monsanc.short %>%
+  filter(charge_degree=="Felony") %>%
+  mutate(county_code = str_sub(current_case_number, start=1, end=2),
+         case_short = str_extract(str_sub(current_case_number,start=3), "[0-9]+"))
+
+mnsg <- read_csv("~/MonSanc/msgc_crimhistory.csv") %>%
+  select(case_number, case_county, severity_conv, chpoints_final) %>%
+  distinct(case_county, case_number, .keep_all = T)
+
+
+monsanc.short.fel <- monsanc.short.fel %>% 
+  left_join(mnsg, by = c("county_code"="case_county","case_short"="case_number")) 
+
+mv.fel<- lm(cbind(log(total_ff+1), log(conf_minus_stayed_ts_log+1), log(prob_days+1))~
+              race_impute+gender_impute+log(age)+severity_conv+chpoints_final+pubdef+credit_days+trial_flag+
+              drug+alcohol.dui+other.offense+filed_district, data = monsanc.short.fel)
+summary(mv.fel)
+
+iv.ff.fel <- ivreg(total_ff_log~conf_minus_stayed_ts_log+
+                 black+hispanic+asian+nativeam+other.race+race.miss+male+log(age)+
+                    severity_conv+chpoints_final+pubdef+credit_days+trial_flag+
+                 drug+alcohol.dui+other.offense+filed_district|
+              .-conf_minus_stayed_ts_log+cap_ratio, 
+           data = monsanc.short.fel)
+
+summary(iv.ff.fel, diagnostics=T)
+
+mv.gm <- lm(cbind(log(total_ff+1), log(conf_minus_stayed_ts_log+1), log(prob_days+1))~
+              race_impute+gender_impute+log(age)+priors+pubdef+credit_days+trial_flag+
+              drug+alcohol.dui+other.offense+filed_district, data = monsanc.short.gm)
+summary(mv.gm)
+
+iv.ff.gm <- ivreg(total_ff_log~conf_minus_stayed_ts_log+
+                 black+hispanic+asian+nativeam+other.race+race.miss+male+log(age)+
+                    priors+pubdef+credit_days+trial_flag+
+                 drug+alcohol.dui+other.offense+filed_district|
+              .-conf_minus_stayed_ts_log+cap_ratio, 
+           data = monsanc.short.gm)
+
+summary(iv.ff.gm, diagnostics=T)
+
+mv.m <- lm(cbind(log(total_ff+1), log(conf_minus_stayed_ts_log+1), log(prob_days+1))~
+              race_impute+gender_impute+log(age)+priors+pubdef+credit_days+trial_flag+
+              drug+alcohol.dui+other.offense+filed_district, data = monsanc.short.mm)
+summary(mv.m)
+
+iv.ff.mis <- ivreg(total_ff_log~conf_minus_stayed_ts_log+
+                 black+hispanic+asian+nativeam+other.race+race.miss+male+log(age)+
+                    priors+pubdef+credit_days+trial_flag+
+                 drug+alcohol.dui+other.offense+filed_district|
+              .-conf_minus_stayed_ts_log+cap_ratio, 
+           data = monsanc.short.mis)
+
+summary(iv.ff.mis, diagnostics=T)
+
+
+
+
+
+```
+
+
+```{r}
+#instrumental Variables Regression  - combined IV
+prison_capacity <- data.frame(year = c(2010, 2011,2012, 2013, 2014, 2015, 2016),
+                              pris_cap = c(1.010013, 1.018325, 0.999138, 1.011649, 1.024146, 1.014269, 1.012914)) 
+
+monsanc.short.comb <- monsanc.short %>% 
+  left_join(prison_capacity, by = c("sentence_year"="year")) %>%
+  mutate(cap_ratio_jail_pris = cap_ratio*pris_cap)
+
+#LFO
+iv.ff <- ivreg(total_ff_log~conf_minus_stayed_ts_log+
+                 black+hispanic+asian+nativeam+other.race+race.miss+male+log(age)+
+                    priors+pubdef+credit_days+trial_flag+
+                 charge_degree+drug+alcohol.dui+other.offense+filed_district|
+              .-conf_minus_stayed_ts_log+cap_ratio_jail_pris, 
+           data = monsanc.short.comb)
+
+summary(iv.ff, diagnostics=T)
+
+
+fs.ff <- lm(conf_minus_stayed_ts_log~black+hispanic+asian+nativeam+other.race+race.miss+male+log(age)+
+                  priors+perc_credit+time_served+trial_flag+felony+gross.mis+
+                  drug+alcohol.dui+other.offense+cap_ratio_jail_pris,
+            data = monsanc.short.comb)
+
+#Probation
+iv.prob <- ivreg(prob_days_log~conf_minus_stayed_ts_log+
+                 black+hispanic+asian+nativeam+other.race+race.miss+male+log(age)+
+                  priors+pubdef+credit_days+trial_flag+gross.mis+
+                  drug+alcohol.dui+other.offense+filed_district| 
+              .-conf_minus_stayed_ts_log+cap_ratio_jail_pris, 
+           data = monsanc.short.comb)
 
 summary(iv.prob, diagnostics=T)
 
