@@ -50,7 +50,7 @@ monsanc.short <- monsanc %>%
   filter(file_year >= 2010) #restricting to cases started from 2010-2015
 
 #make factors into binary indicators to match analyses/tables from paper
-monsanc.short <- monsanc.short %>% 
+felony <- monsanc.short %>% 
   mutate(charge_degree = ifelse(charge_degree=="converted"|charge_degree=="other", NA, charge_degree),
          felony = ifelse(charge_degree=="felony", 1, 0), 
          gross.mis = ifelse(charge_degree=="gross misdemeanor", 1, 0),
@@ -68,10 +68,9 @@ monsanc.short <- monsanc.short %>%
          hunt.fish = ifelse(charge_offense=="hunt/fish", 1, 0),
          other.offense = ifelse(charge_offense=="other", 1, 0),
          male = ifelse(gender_impute=="M", 1,0)) %>%
-  filter(age >= 15) #filtering cases with likely error ages (n=620)
+  filter(age >= 15) %>% #filtering cases with likely error ages (n=620)
+  filter(felony_flag==1) #filter for cases that include a felony charge
 
-#felony filter
-felony <- monsanc.short %>% filter(charge_degree=="Felony")
 
 #creation of id for MNSG merge 
 felony <- felony %>%
@@ -121,14 +120,17 @@ stargazer(as.data.frame(felony[,c("total_ff",
                                    "severity_conv","chpoints_final","age",
                                   "male","white","asian",
                                   "black","hispanic","nativeam","other.race",
-                                  "trial_flag","violent","alcohol.dui","drug",
-                                  "hunt.fish","other.offense","min_perc","repubvote","lecperc")]), 
+                                  "trial_flag",
+                                  "petty_flag", "misdem_flag", "gm_flag", 
+                                  "violent_flag","alcohol_flag","drug_flag",
+                                  "hf_flag","min_perc","repubvote","lecperc")]), 
           type="latex", style="asr", title="Descriptive Statistics - Felony Data",
           summary=T, covariate.labels=c("Total Fine/Fee", "Severity (Conv.)","Crim. Hist. Pts.", "Age", 
                                                   "Male", "White","Asian", "Black", 
-                                                  "Hispanic", "Native Am.", "Other Race", "Trial", 
+                                                  "Hispanic", "Native Am.", "Other Race", "Trial",
+                                                  "Petty Misdemeanor", "Misdemeanor", "Gross Misdemeanor",
                                                   "Violent","Alcohol/DUI", "Drug", "Hunt/Fish", 
-                                                  "Other Offense", "Percent Minority", 
+                                                  "Percent Minority", 
                                                   "Percent Vote Republican", "Percent Law and Justice"), 
           header = F)
 ```
@@ -142,15 +144,18 @@ corr<-round(cor(felony[,c("total_ff",
                                   "severity_conv","chpoints_final","age",
                                   "male","white","asian",
                                   "black","hispanic","nativeam","other.race",
-                                  "trial_flag","violent","alcohol.dui","drug",
-                                  "hunt.fish","other.offense","min_perc","repubvote","lecperc")], use="pairwise.complete.obs", method="pearson" ),2)
+                                  "trial_flag",
+                                  "petty_flag", "misdem_flag", "gm_flag",
+                                  "violent_flag","alcohol_flag","drug_flag",
+                                  "hf_flag","min_perc","repubvote","lecperc")], use="pairwise.complete.obs", method="pearson" ),2)
 corr[upper.tri(corr)] <-""
 upper <- as.matrix(corr)
 rownames(upper) <- c("Total Fine/Fee (log)", "Severity (Conv.)","Crim. Hist. Pts.", "Age", 
                                                   "Male", "White","Asian", "Black", 
                                                   "Hispanic", "Native Am.", "Other Race", "Trial", 
+                                                  "Petty Misdemeanor", "Misdemeanor", "Gross Misdemeanor",
                                                   "Violent","Alcohol.DUI", "Drug", "Hunt.Fish", 
-                                                  "Other Offense", "Percent Minority", 
+                                                  "Percent Minority", 
                                                   "Percent Vote Republican", "Percent Law and Justice")
 ```
 
@@ -165,41 +170,33 @@ stargazer(upper, header=F, title="Pairwise Correlations", font.size="small", col
 
 ## Table 3 Replication 
 
-The table below presents a replication of Table 3 in Harris et. al. 2011 with data using only felony offenses. A few differences are of note: "SRA score" and "offender score", or comparable measures, are not redily available in the MCAO data. We include a criminal history score and severity score from the Minnesota Sentencing Guidelines Commission data, which judges will use in sentencing in MN.  We run each of the models on a subset of cases consisting of all felony cases, as to make a closer comparison to the superior court data in Washington. Question: In the ASR paper, there are two offense type binary measures which are described as the following: "Drug Offense is a dummy equal to 1 for drug offenses, Other Offense is a dummy equal to 1 for nondrug offenses". What is the referent in the ASR model? For now, I have left non-drug offenses as the referent.
+The table below presents a replication of Table 3 in Harris et. al. 2011 with data using only felony offenses. A few differences are of note: "SRA score" and "offender score", or comparable measures, are not redily available in the MCAO data. We include a criminal history score and severity score from the Minnesota Sentencing Guidelines Commission data, which judges will use in sentencing in MN.  We run each of the models on a subset of cases consisting of all felony cases, as to make a closer comparison to the superior court data in Washington. Question: In the ASR paper, there are two offense type binary measures which are described as the following: "Drug Offense is a dummy equal to 1 for drug offenses, Other Offense is a dummy equal to 1 for nondrug offenses". What is the referent in the ASR model? 
 
 ```{r, include=F}
 #some checks
 means <- felony %>% group_by(race_impute) %>% summarize(mean=mean(total_ff, na.rm=T))
 means #nat. am. not highest total_ff at felony level
 
-m3race <- lmer(total_ff_log ~ black+hispanic+asian+nativeam+other.race+(1|filed_county), 
-               REML = F, data = felony)
-summary(m3race)
-
-m3raceOLS <- lm(total_ff_log ~  black+hispanic+asian+nativeam+other.race, data = felony)
-summary(m3raceOLS)
-
-
-m3race.fe <- lm(total_ff_log ~  black+hispanic+asian+nativeam+other.race+filed_county, data = felony)
-summary(m3race.fe)
-
 #model building table 3
 m31f <-  lmer(total_ff_log ~ 1+(1|filed_county), 
                REML = F, data = felony)
 class(m31f) <- "lmerMod" 
 
-m32f <- lmer(total_ff_log ~ black+hispanic+asian+nativeam+other.race+(1|filed_county), 
+m32f <- lmer(total_ff_log ~ severity_conv+chpoints_final+black+hispanic+asian+nativeam+other.race+(1|filed_county), 
                REML = F, data = felony)
 class(m32f) <- "lmerMod" 
 
-m33f <- lmer(total_ff_log ~ severity_conv+chpoints_final+log(age)+male+
-               black+hispanic+asian+nativeam+other.race+
-               trial_flag+drug+(1|filed_county), REML = F, data = felony)
+m33f <- lmer(total_ff_log ~ severity_conv+chpoints_final+
+               black+hispanic+asian+nativeam+other.race+male+log(age)+priors+trial_flag+
+              petty_flag+misdem_flag+gm_flag+felony_flag+
+              drug_flag+alcohol_flag+hf_flag+violent_flag+(1|filed_county), REML = F, data = felony)
 class(m33f) <- "lmerMod" 
 
 m34f <- lmer(total_ff_log ~ severity_conv+chpoints_final+
-               black+hispanic+asian+nativeam+other.race+male+log(age)+trial_flag+
-              drug+min_perc+repubvote+lecperc+(1|filed_county), REML = F, data = felony)
+               black+hispanic+asian+nativeam+other.race+male+log(age)+priors+trial_flag+
+              petty_flag+misdem_flag+gm_flag+felony_flag+
+              drug_flag+alcohol_flag+hf_flag+violent_flag+
+               min_perc+repubvote+lecperc+(1|filed_county), REML = F, data = felony)
 class(m34f) <- "lmerMod" 
 
 ```
@@ -209,10 +206,9 @@ class(m34f) <- "lmerMod"
 stargazer(m31f, m32f, m33f, m34f,
           style = "asr", type = "latex", title = "Harris et. al. ASR Table 3 Replication  - MCAO Felony Data",
           covariate.labels = c("Severity Score (Conv.)", "Crim. Hist. Pts.",
-                               "Ln Age","Male",
-                               "Black", "Hispanic", "Asian", "Native Am.", "Other Race", 
-                                 "Trial", 
-                                "Drug", "Percent Minority", 
+                               "Black", "Hispanic", "Asian", "Native Am.", "Other Race, Ln Age","Male",
+                                 "Trial", "Petty Misdemeanor", "Misdemeanor", "Gross Misdemeanor",
+                                "Drug", "Alcohol/DUI", "Hunt/Fish", "Violent", "Percent Minority", 
                                "Percent Vote Republican", "Percent Law and Justice"),
           dep.var.labels =  "Total Fine and Fee Order (log)", model.numbers = T,
           add.lines = list(c("L1 Variance", 
@@ -261,22 +257,26 @@ r1Var / (r1Var + residVar) #only 11.8% of variation is due to county
 
 ```{r, include=F}
 #table 4 - Black Interactions
-m41f <- lmer(total_ff_log ~ severity_conv+chpoints_final+log(age)+male+black+trial_flag+violent+
+m41f <- lmer(total_ff_log ~ severity_conv+chpoints_final+log(age)+male+black+trial_flag+
+               petty_flag+misdem_flag+gm_flag+violent_flag+
               black_perc+repubvote+lecperc+(1|filed_county), REML = F, data = felony)
 class(m41f) <- "lmerMod" 
 
-m42f <- lmer(total_ff_log ~ severity_conv+chpoints_final+log(age)+male+black+trial_flag+violent+
+m42f <- lmer(total_ff_log ~ severity_conv+chpoints_final+log(age)+male+black+trial_flag+
+               petty_flag+misdem_flag+gm_flag+violent_flag+
                black_perc+repubvote+lecperc+black_perc:black+(1|filed_county), 
              REML = F, data = felony)
 class(m42f) <- "lmerMod" 
 
-m43f <- lmer(total_ff_log ~ severity_conv+chpoints_final+log(age)+male+black+trial_flag+violent+
-               black_perc+repubvote+lecperc+violent:black+(1|filed_county), 
+m43f <- lmer(total_ff_log ~ severity_conv+chpoints_final+log(age)+male+black+trial_flag+
+               petty_flag+misdem_flag+gm_flag+violent_flag+
+               black_perc+repubvote+lecperc+violent_flag:black+(1|filed_county), 
              REML = F, data = felony)
 class(m43f) <- "lmerMod" 
 
-m44f <- lmer(total_ff_log ~ severity_conv+chpoints_final+log(age)+male+black+trial_flag+violent+
-               black_perc+repubvote+lecperc+violent:black_perc+(1|filed_county), 
+m44f <- lmer(total_ff_log ~ severity_conv+chpoints_final+log(age)+male+black+trial_flag+
+               petty_flag+misdem_flag+gm_flag+violent_flag+
+               black_perc+repubvote+lecperc+violent_flag:black_perc+(1|filed_county), 
              REML = F, data = felony)
 class(m44f) <- "lmerMod" 
 
@@ -287,6 +287,7 @@ stargazer(m41f, m42f, m43f, m44f,
           style = "asr", type = "latex", title = "Harris et. al. ASR Table 4 Replication  - MCAO Felony Data",
           covariate.labels = c("Severity Score (Conv.)", "Crim. Hist. Pts.", "Ln Age", 
                                "Male",  "Black",  "Trial", 
+                               "Petty Misdemeanor", "Misdemeanor", "Gross Misdemeanor",
                                "Violent", "Percent Black", 
                                "Percent Vote Republican", "Percent Law and Justice",
                                "Black*Percent Black", "Black*Violent", "Violent*Percent Black"),
@@ -307,23 +308,27 @@ stargazer(m41f, m42f, m43f, m44f,
 ```{r, include=F}
 #table 5 - Hispanic Interactions
 
-m51f <- lmer(total_ff_log ~ severity_conv+chpoints_final+log(age)+male+hispanic+trial_flag+drug+
+m51f <- lmer(total_ff_log ~ severity_conv+chpoints_final+log(age)+male+hispanic+trial_flag+
+               petty_flag+misdem_flag+gm_flag+drug_flag+
                hisp_perc+repubvote+lecperc+(1|filed_county), REML = F, data = felony)
 class(m51f) <- "lmerMod" 
 
 
-m52f <- lmer(total_ff_log ~ severity_conv+chpoints_final+log(age)+male+hispanic+trial_flag+drug+
+m52f <- lmer(total_ff_log ~ severity_conv+chpoints_final+log(age)+male+hispanic+trial_flag+
+               petty_flag+misdem_flag+gm_flag+drug_flag+
                hisp_perc+repubvote+lecperc+hisp_perc:hispanic+(1|filed_county), 
              REML = F, data = felony)
 class(m52f) <- "lmerMod" 
 
-m53f <- lmer(total_ff_log ~ severity_conv+chpoints_final+log(age)+male+hispanic+trial_flag+drug+
-               hisp_perc+repubvote+lecperc+drug:hispanic+(1|filed_county), 
+m53f <- lmer(total_ff_log ~ severity_conv+chpoints_final+log(age)+male+hispanic+trial_flag+
+               petty_flag+misdem_flag+gm_flag+drug_flag+
+               hisp_perc+repubvote+lecperc+drug_flag:hispanic+(1|filed_county), 
              REML = F, data = felony)
 class(m53f) <- "lmerMod" 
 
-m54f <- lmer(total_ff_log ~ severity_conv+chpoints_final+log(age)+male+hispanic+trial_flag+drug+
-               hisp_perc+repubvote+lecperc+drug:hisp_perc+(1|filed_county), 
+m54f <- lmer(total_ff_log ~ severity_conv+chpoints_final+log(age)+male+hispanic+trial_flag+
+               petty_flag+misdem_flag+gm_flag+drug_flag+
+               hisp_perc+repubvote+lecperc+drug_flag:hisp_perc+(1|filed_county), 
              REML = F, data = felony)
 class(m54f) <- "lmerMod" 
 
@@ -334,6 +339,7 @@ stargazer(m51f, m52f, m53f, m54f,
           style = "asr", type = "latex", title = "Harris et. al. ASR Table 5 Replication  - MCAO Felony Data",
           covariate.labels = c("Severity Score (Conv.)", "Crim. Hist. Pts.", "Ln Age", 
                                "Male",  "Hispanic",  "Trial", 
+                               "Petty Misdemeanor", "Misdemeanor","Gross Misdemeanor",
                                "Drug", "Percent Hispanic", 
                                "Percent Vote Republican", "Percent Law and Justice",
                                "Hispanic*Percent Hispanic", "Hispanic*Drug", "Drug*Percent Hispanic"),
@@ -353,23 +359,27 @@ stargazer(m51f, m52f, m53f, m54f,
 
 ```{r, include=F}
 #table "6" - Native American Interactions 
-m61f <- lmer(total_ff_log ~ severity_conv+chpoints_final+log(age)+male+nativeam+trial_flag+alcohol.dui+
+m61f <- lmer(total_ff_log ~ severity_conv+chpoints_final+log(age)+male+nativeam+trial_flag+
+               petty_flag+misdem_flag+gm_flag+alcohol_flag+
                na_perc+repubvote+lecperc+(1|filed_county), REML = F, data = felony)
 class(m61f) <- "lmerMod" 
 
 
-m62f <- lmer(total_ff_log ~ severity_conv+chpoints_final+log(age)+male+nativeam+trial_flag+alcohol.dui+
+m62f <- lmer(total_ff_log ~ severity_conv+chpoints_final+log(age)+male+nativeam+trial_flag+
+               petty_flag+misdem_flag+gm_flag+alcohol_flag+
                na_perc+repubvote+lecperc+na_perc:nativeam+(1|filed_county), 
              REML = F, data = felony)
 class(m62f) <- "lmerMod" 
 
-m63f <- lmer(total_ff_log ~ severity_conv+chpoints_final+log(age)+male+nativeam+trial_flag+alcohol.dui+
-               na_perc+repubvote+lecperc+alcohol.dui:nativeam+(1|filed_county), 
+m63f <- lmer(total_ff_log ~ severity_conv+chpoints_final+log(age)+male+nativeam+trial_flag+
+               petty_flag+misdem_flag+gm_flag+alcohol_flag+
+               na_perc+repubvote+lecperc+alcohol_flag:nativeam+hf_flag:nativeam+(1|filed_county), 
              REML = F, data = felony)
 class(m63f) <- "lmerMod" 
 
-m64f <- lmer(total_ff_log ~ severity_conv+chpoints_final+log(age)+male+nativeam+trial_flag+alcohol.dui+
-               na_perc+repubvote+lecperc+alcohol.dui:na_perc+(1|filed_county), 
+m64f <- lmer(total_ff_log ~ severity_conv+chpoints_final+log(age)+male+nativeam+trial_flag+
+               petty_flag+misdem_flag+gm_flag+alcohol_flag+
+               na_perc+repubvote+lecperc+alcohol_flag:na_perc+hf_flag:na_perc+(1|filed_county), 
              REML = F, data = felony)
 class(m64f) <- "lmerMod" 
 
@@ -380,10 +390,11 @@ stargazer(m61f, m62f, m63f, m64f,
           style = "asr", type = "latex", title = "Native American Interactions - MCAO Felony Data",
           covariate.labels = c("Severity Score (Conv.)", "Crim. Hist. Pts.", "Ln Age", 
                                "Male",  "Native Am.",  "Trial", 
+                               "Petty Misdemeanor", "Misdemeanor", "Gross Misdemeanor",
                                "Alcohol.DUI", "Percent NA", 
                                "Percent Vote Republican", "Percent Law and Justice",
-                               "Native Am.*Percent NA", "Native Am.*Alcohol.DUI",
-                               "Alcohol.DUI*Percent NA"),
+                               "Native Am.*Percent NA", "Native Am.*Alcohol.DUI", "Native Am.*Hunt/Fish",
+                               "Alcohol.DUI*Percent NA",  "Hunt/Fish*Percent NA"),
           dep.var.labels =  "Total Fine and Fee Order (log)", model.numbers = T,
           add.lines = list(c("L1 Variance", round(attr(VarCorr(m61f), "sc")^2,2),
                              round(attr(VarCorr(m62f), "sc")^2,2), round(attr(VarCorr(m63f), "sc")^2,2),
