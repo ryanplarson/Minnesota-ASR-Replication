@@ -1,0 +1,724 @@
+---
+title: "Race Paper Final"
+author: "Ryan Larson - UMN"
+date: "`r format(Sys.time(), '%m/%d/%Y')`"
+output:
+  pdf_document: default
+always_allow_html: true
+fontsize: 11pt
+editor_options:
+  chunk_output_type: console
+header-includes: 
+  - \usepackage{dcolumn}
+  - \pagenumbering{gobble}
+---
+
+# Package Preamble
+
+```{r, warning=FALSE, message=FALSE}
+library(readr)
+library(readxl)
+library(tidyr)
+library(stringr)
+library(dplyr)
+library(ggplot2)
+library(sem)
+library(AER)
+library(stargazer)
+library(tvthemes)
+library(kableExtra)
+library(dotwhisker)
+
+#felony only runs
+#Figure 2: identify dotted line as white
+#first stage in appendix
+```
+
+# Data Munging
+
+```{r, warning=F, include=F, message=F, eval=FALSE}
+#load data - constructed from MCAO .txt files
+monsanc <- read_csv("Data/monsanc.csv") 
+
+#recoding and filtering
+monsanc.short <- monsanc %>%
+    filter(charge_degree!="Petty Misdemeanor") %>% #no petty misdemeanors
+  mutate(total_ff = total_ff*adj, #adjust dollars to Jan. 2018
+         total_ff_log = log((total_ff+1)), 
+         total_order = total_order*adj,
+         total_order_log = log((total_order+1)), 
+         conf_days_log = log((conf_days+1)),
+         conf_minus_stayed = ifelse(conf_minus_stayed < 0, NA, conf_minus_stayed),
+         conf_minus_stayed_log = log((conf_minus_stayed+1)), 
+         conf_minus_stayed_ts = ifelse(conf_minus_stayed-credit_days <0, 0, conf_minus_stayed-credit_days),
+         conf_minus_stayed_ts_log = log((conf_minus_stayed_ts+1)),
+         prob_days_log = log((prob_days+1)),
+         perc_credit = ifelse(is.nan(perc_credit), 0, perc_credit),
+         perc_credit = ifelse(is.infinite(perc_credit), NA, perc_credit),
+         perc_stayed = (conf_days-conf_minus_stayed)/conf_days*100,
+         perc_stayed = ifelse(is.nan(perc_stayed), 0, perc_stayed)) %>%
+  #filter(file_year >= 2010 & file_year <= 2015 & sentence_year >=2010) %>%
+  filter(age >= 15) %>%  #filtering cases with likely error ages 
+  filter(prob_days <= 20*365) %>% #filtering cases with likely error probation (above 65 years)
+  filter(credit_days < 129564) %>% #removing removing likely error credit case
+  mutate(charge_degree = relevel(factor(charge_degree, ordered = F), ref = "Misdemeanor"),
+         charge_offense = relevel(factor(charge_offense, ordered = F), ref = "violent"),
+         filed_district = relevel(factor(
+         filed_district, ordered = F), ref = "04"), 
+         felony = ifelse(charge_degree=="Felony", 1, 0), 
+         gross.mis = ifelse(charge_degree=="Gross Misdemeanor", 1, 0),
+         mis = ifelse(charge_degree=="Misdemeanor", 1, 0),
+         petty.mis = ifelse(charge_degree=="Petty Misdemeanor", 1, 0),
+         violent = ifelse(charge_offense=="violent", 1, 0),
+         alcohol.dui = ifelse(charge_offense=="alcohol/dui", 1, 0),
+         drug = ifelse(charge_offense=="drug", 1, 0),
+         hunt.fish = ifelse(charge_offense=="hunt/fish", 1, 0),
+         other.offense = ifelse(charge_offense=="other", 1, 0),
+         male = ifelse(gender_impute=="M", 1,0),
+         perc_credit = ifelse(perc_credit > 100, 100, perc_credit),
+         trial_flag = ifelse(trial_flag==TRUE, 1,0),
+         pubdef = ifelse(pubdef=="yes", 1,0),
+         felony_flag = ifelse(felony_flag==TRUE,1,0),
+         gm_flag = ifelse(gm_flag==TRUE,1,0),
+         violent_flag = ifelse(violent_flag==TRUE,1,0),
+         drug_flag = ifelse(drug_flag==TRUE,1,0),
+         alcohol_flag = ifelse(alcohol_flag==TRUE,1,0)) %>%
+  fastDummies::dummy_cols(select_columns = c("filed_district", "sentence_year"))
+
+#% Missing on defendant-level demographics (p. 19 of draft)
+prop.table(table(is.na(monsanc.short$race_impute)))
+prop.table(table(is.na(monsanc.short$gender_impute)))
+
+#defining focal race factor
+monsanc.short <- monsanc.short %>%
+  mutate(race_impute = case_when(
+    race_impute=="white"~"white",
+    race_impute=="black"~"black",
+    race_impute=="hispanic"~"hispanic",
+    race_impute=="asian"~"asian",
+    race_impute=="nat. am."~"nat. am.",
+    race_impute=="other"~"other",
+    is.na(race_impute)~"missing"
+  )) %>%
+  mutate(race_impute = relevel(factor(race_impute, ordered = F), 
+                               ref = "white"),
+         race.miss = ifelse(race_impute=="missing", 1, 0),
+          white = ifelse(race_impute=="white", 1, 0),
+         asian = ifelse(race_impute=="asian", 1, 0),
+         black = ifelse(race_impute=="black", 1, 0),
+         hispanic = ifelse(race_impute=="hispanic", 1, 0),
+         nativeam = ifelse(race_impute=="nat. am.", 1, 0),
+         other.race = ifelse(race_impute=="other", 1, 0))
+
+#joining and munging capacity data
+capacity <- read_xlsx("Data/capacity.xlsx") %>%
+  filter(year >= 2004 & year <= 2018 & state=="MN") %>% 
+  dplyr::select(county_name, year, total_jail_pop, jail_rated_capacity) %>% 
+  mutate(cap_ratio = total_jail_pop/jail_rated_capacity) %>%
+  mutate(cap_ratio = ifelse(is.nan(cap_ratio), 1, cap_ratio)) %>%
+  group_by(county_name) %>%
+  mutate(cap_ratio_lead = dplyr::lead(cap_ratio, 1, order_by = year)) %>%
+  ungroup()
+
+regional_jails <- read_xlsx("Data/capacity.xlsx") %>%
+  filter(year >= 2004 & year <= 2018 & state=="MN") %>%
+  filter(regional_jail_flag==1) %>%
+  pull(county_name) %>%
+  unique()
+  
+
+monsanc.short <- monsanc.short %>% 
+  left_join(capacity, by = c("filed_county"="county_name", "sentence_year"="year")) %>%
+  mutate(regional_jail = ifelse(filed_county %in% regional_jails, 1, 0))
+
+#fix pubdef variable
+table(monsanc.short$pubdef, monsanc.short$attorney, useNA = "always") #no lawyer stated as missing in pubdef
+
+monsanc.short <- monsanc.short %>%
+  mutate(pubdef = ifelse(is.na(pubdef), 0, pubdef),
+         perc_credit = ifelse(is.na(perc_credit), 0, perc_credit))
+
+#listwise deletion of missing data
+#restrict cases with felony and gross misdemeanor highest charges
+monsanc.short <- monsanc.short  %>%
+  drop_na(conf_minus_stayed_ts, total_ff, prob_days,
+          age, trial_flag,
+        priors, pubdef, perc_credit,
+        perc_stayed, 
+        felony_flag, gm_flag, 
+        violent_flag, drug_flag, alcohol_flag,
+        filed_district, sentence_year,
+        cap_ratio) %>%
+  filter(charge_degree=="Felony"|
+           charge_degree=="Gross Misdemeanor")
+
+#listwise deletion demographic missing
+monsanc.short <- monsanc.short  %>%
+  drop_na(race_impute, gender_impute) 
+
+write_csv(monsanc.short, "Data/monsanc.short.csv")
+```
+
+
+# Analysis with Gross Misdemeanor and Felony Highest Charge Cases
+
+```{r}
+monsanc.short <- read_csv("Data/monsanc.short.csv")
+```
+
+## Table 1: Descriptive Statistics
+
+```{r, results='asis'}
+monsanc.ds <- as.data.frame(monsanc.short[,c("conf_minus_stayed_ts",
+                                         "total_ff", 
+                                  "prob_days",  
+                                 "white", "black", "hispanic",
+                                 "asian", "nativeam",  
+                                 "other.race", "race.miss",
+                                 "male", "age", "trial_flag",
+                                 "priors", "pubdef", "perc_credit",
+                                 "perc_stayed",
+                                 "felony_flag", "gm_flag",
+                                 "violent_flag", "drug_flag","alcohol_flag",
+                                 "filed_district_01", "filed_district_02",  
+                                 "filed_district_03", 
+                                 "filed_district_04", "filed_district_05",  
+                                 "filed_district_06", "filed_district_07",  
+                                 "filed_district_08", "filed_district_09", 
+                                 "filed_district_10", 
+                                 "sentence_year_2004","sentence_year_2005",
+                                 "sentence_year_2006","sentence_year_2007",
+                                 "sentence_year_2008","sentence_year_2009",
+                                 "sentence_year_2010","sentence_year_2011",
+                                 "sentence_year_2012",
+                                 "sentence_year_2013", "sentence_year_2014",
+                                 "sentence_year_2015", "sentence_year_2016",
+                                 "sentence_year_2017",
+                                 "cap_ratio")])
+
+stargazer(monsanc.ds,
+          covariate.labels = c("Incarceration Days",
+                               "Total Fine/Fee Order", 
+                               "Probation Days",  
+                                 "White", "Black", "Hispanic",
+                                 "Asian", "Native American",  
+                                 "Other Race", "Missing Race", 
+                                 "Male", "Age", "Trial",
+                                 "Priors", "Public Defender", 
+                                 "Percent Credit", "Percent Stayed",
+                                 "Felony", "Gross Misdemeanor",
+                                 "Violent", "Drug","Alcohol/DUI",
+                               "Judicial District 1", "Judicial District 2",
+                               "Judicial District 3", "Judicial District 4",
+                               "Judicial District 5", "Judicial District 6",
+                               "Judicial District 7", "Judicial District 8",
+                               "Judicial District 9", 
+                               "Judicial District 10",
+                               "Year - 2004", "Year - 2005",
+                               "Year - 2006", "Year - 2007",
+                               "Year - 2008", "Year - 2009",
+                               "Year - 2010", 
+                               "Year - 2011", "Year - 2012",
+                               "Year - 2013", "Year - 2014", "Year - 2015",
+                               "Year - 2016", "Year - 2017",
+                               "County-Level Capacity Ratio"),
+          type="latex", 
+          style="asr", 
+          title="Descriptive Statistics for Variables SCAO and VERA Jail Data",
+          summary=T, 
+          median=T,  
+          header = F)
+```
+
+## Figure 1: Punishment Amounts by Race and Type
+
+```{r, message=FALSE}
+#faceted bar graph
+fig1 <- monsanc.short %>%
+  select(race_impute, total_ff,
+         conf_minus_stayed_ts, prob_days) %>%
+ mutate(Race = case_when(
+    race_impute=="asian"~"Asian",
+    race_impute=="black"~"Black",
+    race_impute=="hispanic"~"Hispanic",
+    race_impute=="nat. am."~"Nat. Am.",
+    race_impute=="other"~"Other",
+    race_impute=="white"~"White"
+  )) %>%
+  filter(!is.na(Race)) %>%
+  select(-race_impute) %>%
+  group_by(Race) %>%
+  summarize(LFO = mean(total_ff, na.rm = T),
+            Incarceration = mean(conf_minus_stayed_ts, na.rm = T),
+            Probation = mean(prob_days, na.rm = T)) %>%
+  mutate(Race = factor(Race, 
+                       levels = c("White", "Black",
+                                  "Hispanic", "Asian", 
+                                  "Nat. Am.", "Other"))) %>%
+  pivot_longer(cols = c("LFO", "Incarceration", "Probation"),
+               names_to = "punishment",
+               values_to = "amount") %>%
+  ggplot()+
+  geom_bar(aes(x=Race, y=amount, fill = Race),
+           color = "black",
+           stat="identity", 
+           position = position_dodge2())+
+  geom_text(aes(x=Race, y=amount+25,
+              label = round(amount,0)), 
+          position = position_dodge2(width = 1))+
+  facet_wrap(~punishment)+
+  labs(title = "Figure 1: Punishment Amounts by Defendant Race",
+       subtitle = "MN SCAO 2011-2015",
+       y = "Amount (Days/USD/Days)")+
+  tvthemes::scale_fill_westeros(palette = "Stark")+
+  theme_classic()+
+  theme(legend.position = "none"#,
+        #text=element_text(family="Times New Roman")
+        )
+
+fig1
+```
+
+## Table 2: Multivariate Regression of Punishment
+
+$$Y_{ik}=\alpha_k + \sum \pi_{jk}Race_{ij}+\sum \beta_{jk}X_{ij}+\theta_{dk}+\lambda_{tk}+\epsilon_{ik}$$
+
+```{r}
+#Multivariate Regression - when all predictors are identical across models
+  #equivalent to separate OLS, but more efficient and takes into account error covariance
+
+#multivariate regression
+mv <- lm(cbind(log(conf_minus_stayed_ts_log+1),
+               log(prob_days+1),
+               log(total_ff+1))~
+                 black+hispanic+asian+nativeam+other.race+
+                 race.miss+
+                 male+log(age)+
+                  priors+pubdef+perc_credit+
+           perc_stayed+trial_flag+
+                 felony_flag+gm_flag+
+                 violent_flag+drug_flag+alcohol_flag+
+                 filed_district+
+                 as.factor(sentence_year), 
+         data = monsanc.short)
+
+summary(mv)
+
+conf_model <- lm(log(conf_minus_stayed_ts+1)~
+                 black+hispanic+asian+nativeam+other.race+
+                 race.miss+
+                 male+log(age)+
+                  priors+pubdef+perc_credit+
+           perc_stayed+trial_flag+
+                 felony_flag+gm_flag+
+                 violent_flag+drug_flag+alcohol_flag+
+                 filed_district+
+                 as.factor(sentence_year), 
+         data = monsanc.short)
+
+prob_model <- lm(log(prob_days+1)~
+                  black+hispanic+asian+nativeam+other.race+
+                 race.miss+
+                 male+log(age)+
+                  priors+pubdef+perc_credit+
+           perc_stayed+trial_flag+
+                 felony_flag+gm_flag+
+                 violent_flag+drug_flag+alcohol_flag+
+                 filed_district+
+                 as.factor(sentence_year), 
+         data = monsanc.short)
+
+lfo_model <- lm(log(total_ff+1)~
+                  black+hispanic+asian+nativeam+other.race+
+                 race.miss+
+                 male+log(age)+
+                  priors+pubdef+perc_credit+
+           perc_stayed+trial_flag+
+                 felony_flag+gm_flag+
+                 violent_flag+drug_flag+alcohol_flag+
+                 filed_district+
+                 as.factor(sentence_year), 
+         data = monsanc.short)
+```
+
+
+```{r, results='asis'}
+#stargazer regression table
+
+stargazer(conf_model, lfo_model, prob_model,
+           type = "latex", 
+          title = "Multivariate Model of Punishment, Minnesota 2004-2017",
+          covariate.labels = c("Black", "Hispanic", "Asian",
+                               "Native American", "Other Race",
+                               "Missing Race", "Male", "log(Age)",
+                               "Prior Convictions", "Public Defender", 
+                               "Percent Credit", "Percent Stayed",
+                               "Trial", 
+                               "Felony", "Gross Misdemeanor", 
+                               "Violent", "Drug", "Alcohol/DUI"),
+          model.numbers = FALSE,
+          header = FALSE,
+          dep.var.caption  = "Punishment Outcome",
+          dep.var.labels = c("log(Incarceration)", 
+                            "log(LFO)",
+                            "log(Probation)"),
+          column.labels = c("Coef(SE)", "Coef(SE)", "Coef(SE)"),
+          single.row = TRUE,
+          font.size="footnotesize", 
+          no.space = T, 
+          column.sep.width = "1pt",
+          align = TRUE,
+          omit.stat = c("ser"),
+          omit = c("filed_district", "sentence_year"),
+          star.cutoffs = c(.05, .01, .001), 
+          star.char = c("*","**","***"),
+          add.lines = list(c("District FE", "Yes", "Yes", "Yes"),
+                           c("Sentence Year FE", "Yes", "Yes", "Yes")))
+```
+
+## Table 3: Instrumental Variable Models of Punishment
+
+$$I_i = \alpha + \phi_{1}CR_{d} +\sum \beta_{j}X_{ij}+\theta_{d}+\lambda_{t}+\epsilon_{i} $$
+
+$$Y_{ik} = \alpha + \phi_{2k} CR_d+\sum \pi_{jk}Race_{ij}+\sum \beta_{jk}X_{ij}+\theta_{dk}+\lambda_{tk}+\epsilon_{ik}$$
+
+$$\delta_k = \frac{\phi_{2k}}{\phi_{1}}$$
+
+```{r}
+#instrumental Variables Regression 
+
+#LFO
+iv.ff <- ivreg(total_ff_log~conf_minus_stayed_ts_log+
+                 black+hispanic+asian+nativeam+other.race+
+                 race.miss+
+                 male+log(age)+
+                  priors+pubdef+perc_credit+
+                 perc_stayed+
+                 trial_flag+
+                 felony_flag+gm_flag+
+                 violent_flag+drug_flag+alcohol_flag+
+                 filed_district+
+                 as.factor(sentence_year)|
+              .-conf_minus_stayed_ts_log+cap_ratio, 
+           data = monsanc.short)
+
+summary(iv.ff, diagnostics=T)
+
+#Probation
+iv.prob <- ivreg(prob_days_log~conf_minus_stayed_ts_log+
+                 black+hispanic+asian+nativeam+other.race+
+                 race.miss+
+                 male+log(age)+
+                 priors+pubdef+perc_credit+
+                 perc_stayed+
+                 trial_flag+
+                 felony_flag+gm_flag+
+                 violent_flag+drug_flag+alcohol_flag+
+                 filed_district+
+                 as.factor(sentence_year)|
+              .-conf_minus_stayed_ts_log+cap_ratio, 
+           data = monsanc.short)
+
+summary(iv.prob, diagnostics=T)
+
+#exogeneity checks
+
+ppcor::pcor.test(y = monsanc.short$cap_ratio_lead[!is.na(monsanc.short$cap_ratio_lead)], 
+                 x = monsanc.short$total_ff_log[!is.na(monsanc.short$cap_ratio_lead)],
+                 z = monsanc.short$cap_ratio[!is.na(monsanc.short$cap_ratio_lead)],
+                 method = "pearson")
+
+ppcor::pcor.test(y = monsanc.short$cap_ratio_lead[!is.na(monsanc.short$cap_ratio_lead)], 
+                 x = monsanc.short$prob_days_log[!is.na(monsanc.short$cap_ratio_lead)],
+                 z = monsanc.short$cap_ratio[!is.na(monsanc.short$cap_ratio_lead)],
+                 method = "pearson")
+```
+
+```{r, results='asis'}
+stargazer(iv.ff, iv.prob,
+          type = "latex", 
+          title = "IV 2SLS Models of Punishment, Minnesota 2004-2017",
+          covariate.labels = c("log(Incarceration)",
+                               "Black", "Hispanic", "Asian",
+                               "Native American", "Other Race",
+                               "Missing Race", "Male", "log(Age)",
+                               "Prior Convictions", "Public Defender", 
+                               "Percent Credit", "Percent Stayed",
+                               "Trial", 
+                               "Felony", "Gross Misdemeanor", 
+                               "Violent", "Drug", "Alcohol/DUI"),
+          model.numbers = FALSE,
+          header = FALSE,
+         dep.var.caption  = "Punishment Outcome",
+          dep.var.labels = c("log(LFO)",
+                            "log(Probation)"),
+          column.labels = c("Coef(SE)", "Coef(SE)"),
+          single.row = TRUE,
+          font.size="footnotesize", 
+          no.space = T, 
+          column.sep.width = "1pt",
+          align = TRUE,
+          omit = c("filed_district", "sentence_year"),
+          omit.stat = c("adj.rsq", "rsq", "ser"),
+          star.cutoffs = c(.05, .01, .001), 
+          star.char = c("*","**","***"),
+          add.lines = list(c("District FE", "Yes", "Yes", "Yes"),
+                           c("Sentence Year FE", "Yes", "Yes", "Yes"),
+                           c("IV F(Incar.)", "10.58^{**}", "10.58^{**}"),
+                           c("IV Wu-Hausman", "136.08^{***}", "57.62^{***}")),
+          notes = "IV: County-Level Jail Capacity Ratio")
+```
+
+## Figure 2: Coefficient Plot
+
+```{r}
+conf_coef_mv <- broom::tidy(conf_model) %>%
+  filter(str_detect(term, pattern = "black|hispanic|asian|nativeam|other.race")) %>%
+  relabel_predictors(c(
+    black = "Black",
+    hispanic = "Hispanic",
+    asian = "Asian",
+    nativeam = "Native American",
+    other.race = "Other Race"
+  )) %>%
+  mutate(model = "MV",
+         punishment = "Incarceration")
+
+prob_coef_mv <- broom::tidy(prob_model) %>%
+  filter(str_detect(term, pattern = "black|hispanic|asian|nativeam|other.race")) %>%
+  relabel_predictors(c(
+    black = "Black",
+    hispanic = "Hispanic",
+    asian = "Asian",
+    nativeam = "Native American",
+    other.race = "Other Race"
+  )) %>%
+  mutate(model = "MV",
+         punishment = "Probation")
+
+lfo_coef_mv <- broom::tidy(lfo_model) %>%
+  filter(str_detect(term, pattern = "black|hispanic|asian|nativeam|other.race")) %>%
+  relabel_predictors(c(
+    black = "Black",
+    hispanic = "Hispanic",
+    asian = "Asian",
+    nativeam = "Native American",
+    other.race = "Other Race"
+  )) %>%
+  mutate(model = "MV",
+         punishment = "LFO")
+
+prob_coef_iv <- broom::tidy(iv.prob) %>%
+  filter(str_detect(term, pattern = "black|hispanic|asian|nativeam|other.race")) %>%
+  relabel_predictors(c(
+    black = "Black",
+    hispanic = "Hispanic",
+    asian = "Asian",
+    nativeam = "Native American",
+    other.race = "Other Race"
+  )) %>%
+  mutate(model = "IV",
+         punishment = "Probation")
+
+lfo_coef_iv <- broom::tidy(iv.ff) %>%
+  filter(str_detect(term, pattern = "black|hispanic|asian|nativeam|other.race")) %>%
+  relabel_predictors(c(
+    black = "Black",
+    hispanic = "Hispanic",
+    asian = "Asian",
+    nativeam = "Native American",
+    other.race = "Other Race"
+  )) %>%
+  mutate(model = "IV",
+         punishment = "LFO")
+
+mv_coef <- rbind(conf_coef_mv, 
+                 prob_coef_mv,
+                 lfo_coef_mv,
+                 prob_coef_iv, 
+                 lfo_coef_iv) %>%
+  mutate(model = factor(model, levels = c("MV", "IV")))
+
+dwplot(mv_coef,
+       vline = geom_vline(
+        xintercept = 0,
+        colour = "grey60",
+        linetype = 2),
+        dot_args = list(aes(shape = model)),
+    whisker_args = list(aes(linetype = model))) +
+  theme_classic()+
+  #theme(text=element_text(family="Times New Roman"))+
+facet_wrap(~punishment)+
+  labs(x = "Coefficient Estimate",
+       y = "",
+       title = "Figure 2: Coefficient Plots for MV and IV Punishment Models",
+       subtitle = "MV = Multivariate, IV = Instrumental Variable",
+       caption = "Dotted line represents the referent group - White defendants.") +
+  guides(shape = guide_legend("Model"), 
+        colour = guide_legend("Model"))+
+    scale_colour_manual(
+        values = c("black", "orange"),
+        name = "Model",
+        breaks = c("MV", "IV"),
+        labels = c("MV", "IV")) +
+    scale_shape_manual(
+      values = c(1,2),
+        name = "Model",
+        breaks = c("MV", "IV"),
+        labels = c("MV", "IV"))
+```
+
+# Appendix
+
+## Robustness Models without Regional Jails
+
+### Table A1: Multivariate Model of Punishment w/o Regional Jails
+
+```{r}
+conf_model_rj <- lm(log(conf_minus_stayed_ts+1)~
+                 black+hispanic+asian+nativeam+other.race+
+                 race.miss+
+                 male+log(age)+
+                  priors+pubdef+perc_credit+
+           perc_stayed+trial_flag+
+                 felony_flag+gm_flag+
+                 violent_flag+drug_flag+alcohol_flag+
+                 filed_district+
+                 as.factor(sentence_year), 
+         data = monsanc.short[monsanc.short$regional_jail==0,])
+
+prob_model_rj <- lm(log(prob_days+1)~
+                  black+hispanic+asian+nativeam+other.race+
+                 race.miss+
+                 male+log(age)+
+                  priors+pubdef+perc_credit+
+           perc_stayed+trial_flag+
+                 felony_flag+gm_flag+
+                 violent_flag+drug_flag+alcohol_flag+
+                 filed_district+
+                 as.factor(sentence_year), 
+          data = monsanc.short[monsanc.short$regional_jail==0,])
+
+lfo_model_rj <- lm(log(total_ff+1)~
+                  black+hispanic+asian+nativeam+other.race+
+                 race.miss+
+                 male+log(age)+
+                  priors+pubdef+perc_credit+
+           perc_stayed+trial_flag+
+                 felony_flag+gm_flag+
+                 violent_flag+drug_flag+alcohol_flag+
+                 filed_district+
+                 as.factor(sentence_year), 
+          data = monsanc.short[monsanc.short$regional_jail==0,])
+```
+
+
+```{r, results='asis'}
+#stargazer regression table
+
+stargazer(conf_model_rj, lfo_model_rj, prob_model_rj,
+           type = "latex", 
+          title = "Multivariate Model of Punishment w/o Regional Jail Counties, Minnesota 2004-2017",
+          covariate.labels = c("Black", "Hispanic", "Asian",
+                               "Native American", "Other Race",
+                               "Missing Race", "Male", "log(Age)",
+                               "Prior Convictions", "Public Defender", 
+                               "Percent Credit", "Percent Stayed",
+                               "Trial", 
+                               "Felony", "Gross Misdemeanor", 
+                               "Violent", "Drug", "Alcohol/DUI"),
+          model.numbers = FALSE,
+          header = FALSE,
+          dep.var.caption  = "Punishment Outcome",
+          dep.var.labels = c("log(Incarceration)", 
+                            "log(LFO)",
+                            "log(Probation)"),
+          column.labels = c("Coef(SE)", "Coef(SE)", "Coef(SE)"),
+          single.row = TRUE,
+          font.size="footnotesize", 
+          no.space = T, 
+          column.sep.width = "1pt",
+          align = TRUE,
+          omit.stat = c("ser"),
+          omit = c("filed_district", "sentence_year"),
+          star.cutoffs = c(.05, .01, .001), 
+          star.char = c("*","**","***"),
+          add.lines = list(c("District FE", "Yes", "Yes", "Yes"),
+                           c("Sentence Year FE", "Yes", "Yes", "Yes")))
+```
+
+### Table A2: Instrumental Variable Model of Punishment w/o Regional Jails
+
+```{r}
+#instrumental Variables Regression 
+
+#LFO
+iv.ff.rj <- ivreg(total_ff_log~conf_minus_stayed_ts_log+
+                 black+hispanic+asian+nativeam+other.race+
+                 race.miss+
+                 male+log(age)+
+                  priors+pubdef+perc_credit+
+                 perc_stayed+
+                 trial_flag+
+                 felony_flag+gm_flag+
+                 violent_flag+drug_flag+alcohol_flag+
+                 filed_district+
+                 as.factor(sentence_year)|
+              .-conf_minus_stayed_ts_log+cap_ratio, 
+           data = monsanc.short[monsanc.short$regional_jail==0,])
+
+summary(iv.ff.rj, diagnostics=T)
+
+#Probation
+iv.prob.rj <- ivreg(prob_days_log~conf_minus_stayed_ts_log+
+                 black+hispanic+asian+nativeam+other.race+
+                 race.miss+
+                 male+log(age)+
+                 priors+pubdef+perc_credit+
+                 perc_stayed+
+                 trial_flag+
+                 felony_flag+gm_flag+
+                 violent_flag+drug_flag+alcohol_flag+
+                 filed_district+
+                 as.factor(sentence_year)|
+              .-conf_minus_stayed_ts_log+cap_ratio, 
+           data = monsanc.short[monsanc.short$regional_jail==0,])
+
+summary(iv.prob.rj, diagnostics=T)
+```
+
+```{r, results='asis'}
+stargazer(iv.ff.rj, iv.prob.rj,
+          type = "latex", 
+          title = "IV 2SLS Models of Punishment w/o Regional Jail Counties, Minnesota 2004-2017",
+          covariate.labels = c("log(Incarceration)",
+                               "Black", "Hispanic", "Asian",
+                               "Native American", "Other Race",
+                               "Missing Race", "Male", "log(Age)",
+                               "Prior Convictions", "Public Defender", 
+                               "Percent Credit", "Percent Stayed",
+                               "Trial", 
+                               "Felony", "Gross Misdemeanor", 
+                               "Violent", "Drug", "Alcohol/DUI"),
+          model.numbers = FALSE,
+          header = FALSE,
+         dep.var.caption  = "Punishment Outcome",
+          dep.var.labels = c("log(LFO)",
+                            "log(Probation)"),
+          column.labels = c("Coef(SE)", "Coef(SE)"),
+          single.row = TRUE,
+          font.size="footnotesize", 
+          no.space = T, 
+          column.sep.width = "1pt",
+          align = TRUE,
+          omit = c("filed_district", "sentence_year"),
+          omit.stat = c("adj.rsq", "rsq", "ser"),
+          star.cutoffs = c(.05, .01, .001), 
+          star.char = c("*","**","***"),
+          add.lines = list(c("District FE", "Yes", "Yes", "Yes"),
+                           c("Sentence Year FE", "Yes", "Yes", "Yes"),
+                           c("IV F(Incar.)", "4.29^{*}", "4.29^{*}"),
+                           c("IV Wu-Hausman", "159.444^{***}",
+                             "74.99^{***}")),
+          notes = "IV: County-Level Jail Capacity Ratio")
+```

@@ -1,0 +1,683 @@
+---
+title: "Race Paper Penultimate"
+author: "Ryan Larson - UMN"
+date: "`r format(Sys.time(), '%m/%d/%Y')`"
+output: pdf_document
+fontsize: 11pt
+editor_options: 
+  chunk_output_type: console
+header-includes:
+- \usepackage{dcolumn}
+---
+
+# Data Munging
+
+```{r, warning=F, include=F, message=F}
+library(readr)
+library(readxl)
+library(tidyr)
+library(stringr)
+library(dplyr)
+library(ggplot2)
+library(sem)
+library(AER)
+
+#take out prison sentences
+
+
+#load data - constructed from MCAO .txt files
+monsanc <- read_csv("~/MonSanc/monsanc.csv") 
+
+#recoding and filtering, topcode
+monsanc.short <- monsanc %>%
+  mutate(total_ff = total_ff*adj, #adjust dollars to Jan. 2018
+         total_ff = ifelse(total_ff > 1000, 1000, total_ff),
+         total_ff_stand = scale(total_ff),
+         total_ff_log = log((total_ff+1)), #log+1 DV
+         conf_days_log = log((conf_days+1)),
+         conf_minus_stayed = ifelse(conf_minus_stayed < 0, NA, conf_minus_stayed),
+         conf_minus_stayed_log = log((conf_minus_stayed+1)),
+         prob_days_log = log((prob_days+1)),
+         min_perc = (min_pop/total_pop)*100,
+         black_perc = (black_pop/total_pop)*100,
+         hisp_perc = (hisp_pop/total_pop)*100, 
+         na_perc = (na_pop/total_pop)*100, 
+         perc_credit = ifelse(is.nan(perc_credit), 0, perc_credit),
+         perc_credit = ifelse(is.infinite(perc_credit), NA, perc_credit)) %>%
+  filter(file_year >= 2010 & file_year <= 2015 & sentence_year >=2010) %>%
+  mutate(race_impute = case_when(
+    race_impute=="white"~"white",
+    race_impute=="black"~"black",
+    race_impute=="hispanic"~"hispanic",
+    race_impute=="asian"~"asian",
+    race_impute=="nat. am."~"nat. am.",
+    race_impute=="other"~"other",
+    is.na(race_impute)~"missing"
+  )) %>%
+  filter(prison_flag==0) #keep only non-prison cases (lose upward departures)
+
+#make factors into binary indicators to match analyses/tables from paper
+monsanc.short <- monsanc.short %>% 
+  mutate(charge_degree = ifelse(charge_degree=="converted"|charge_degree=="other", NA, charge_degree),
+         felony = ifelse(charge_degree=="Felony", 1, 0), 
+         gross.mis = ifelse(charge_degree=="Gross Misdemeanor", 1, 0),
+         mis = ifelse(charge_degree=="Misdemeanor", 1, 0),
+         petty.mis = ifelse(charge_degree=="Petty Misdemeanor", 1, 0),
+         white = ifelse(race_impute=="white", 1, 0),
+         asian = ifelse(race_impute=="asian", 1, 0),
+         black = ifelse(race_impute=="black", 1, 0),
+         hispanic = ifelse(race_impute=="hispanic", 1, 0),
+         nativeam = ifelse(race_impute=="nat. am.", 1, 0),
+         other.race = ifelse(race_impute=="other", 1, 0),
+         race.miss = ifelse(race_impute=="missing", 1, 0),
+         violent = ifelse(charge_offense=="violent", 1, 0),
+         alcohol.dui = ifelse(charge_offense=="alcohol/dui", 1, 0),
+         drug = ifelse(charge_offense=="drug", 1, 0),
+         hunt.fish = ifelse(charge_offense=="hunt/fish", 1, 0),
+         other.offense = ifelse(charge_offense=="other", 1, 0),
+         male = ifelse(gender_impute=="M", 1,0)) %>%
+  filter(age >= 15) #filtering cases with likely error ages 
+
+#dropping petty misdemeanor-exclusive cases
+monsanc.short <- monsanc.short %>% 
+  filter(charge_degree!="Petty Misdemeanor") 
+
+#joining and munging capacity data
+capacity <- read_xlsx("~/MonSanc/ASR Replication/Minnesota-ASR-Replication/capacity.xlsx") %>%
+  filter(year >= 2010 & year <= 2018 & state=="MN") %>% 
+  select(county_name, year, total_jail_pop, jail_rated_capacity) %>% 
+  mutate(cap_ratio = total_jail_pop/jail_rated_capacity) %>%
+  mutate(cap_ratio = ifelse(is.nan(cap_ratio), 1, cap_ratio))
+
+monsanc.short <- monsanc.short %>% 
+  left_join(capacity, by = c("filed_county"="county_name", "sentence_year"="year"))
+
+#felony level data, merging MNSG vars
+monsanc.felony <- monsanc.short %>%
+  filter(charge_degree=="Felony") %>%
+  mutate(county_code = str_sub(current_case_number, start=1, end=2),
+         case_short = str_extract(str_sub(current_case_number,start=3), "[0-9]+"))
+
+mnsg <- read_csv("~/MonSanc/msgc_crimhistory.csv") %>%
+  select(case_number, case_county, severity_conv, chpoints_final) %>%
+  distinct(case_county, case_number, .keep_all = T)
+
+
+monsanc.felony <- monsanc.felony %>% 
+  left_join(mnsg, by = c("county_code"="case_county","case_short"="case_number")) 
+```
+
+# Analysis with Misdemeanor, Gross Misdemeanor, and Felony Cases
+
+```{r}
+#bar graph - median household income comes from ACS 2017 5-year estimates
+adj <- data.frame(Race = c("Asian", "Black", "Hispanic", "Nat. Am.", "Other", "White"),
+                  race_med_inc = c(71865, 32743, 46232, 36017, 42476, 69069), 
+                  ovr_med_inc = rep(65699, 6))
+
+monsanc.short %>%
+  select(race_impute, total_ff) %>%
+  filter(!is.na(race_impute)) %>%
+  mutate(Race = case_when(
+    race_impute=="asian"~"Asian",
+    race_impute=="black"~"Black",
+    race_impute=="hispanic"~"Hispanic",
+    race_impute=="nat. am."~"Nat. Am.",
+    race_impute=="other"~"Other",
+    race_impute=="white"~"White"
+  )) %>%
+  select(-race_impute) %>%
+  left_join(adj, by = "Race")%>%
+  mutate(race_adj = (ovr_med_inc/race_med_inc)) %>%
+  group_by(Race) %>%
+  summarize(
+    `Raw_USD`= mean(total_ff, na.rm = T),
+    `Adjusted_USD` = mean(total_ff*race_adj, na.rm = T),
+    `Raw_sd` = sd(total_ff, na.rm = T),
+    `Adjusted_sd` = sd(total_ff*race_adj, na.rm=T)
+  ) %>%
+  gather(key = "variable", value= "value", -Race) %>%
+  separate(variable, into = c("adjusted", "stat"), sep = "_") %>%
+  spread(key = "stat", value = "value") %>%
+  mutate(Race = factor(Race, levels = 
+                         c("Asian", "Hispanic", "White", 
+                           "Other", "Nat. Am.", "Black")),
+         `Income Adjusted` = factor(adjusted, levels = c("Raw", "Adjusted"))) %>%
+  select(-adjusted) %>%
+ggplot()+
+  geom_bar(aes(x=Race, y=USD, fill=`Income Adjusted`), 
+           stat="identity", 
+           position = position_dodge2())+
+  geom_text(aes(x=Race, y=USD+25, group=`Income Adjusted`,
+                label = round(USD,0)),
+            position = position_dodge2(width = 1))+
+  labs(title = "Figure 1: Fine/Fee Orders by Race")+
+  scale_fill_manual(values = c("#00AFBB", "#FC4E07"))+
+  theme_minimal()
+
+#confinement bar graph
+monsanc.short %>%
+  select(race_impute, conf_minus_stayed) %>%
+  filter(!is.na(race_impute)) %>%
+  mutate(Race = case_when(
+    race_impute=="asian"~"Asian",
+    race_impute=="black"~"Black",
+    race_impute=="hispanic"~"Hispanic",
+    race_impute=="nat. am."~"Nat. Am.",
+    race_impute=="other"~"Other",
+    race_impute=="white"~"White"
+  )) %>%
+  select(-race_impute) %>%
+  group_by(Race) %>%
+  summarize(
+    `Confinement Days`= mean(conf_minus_stayed, na.rm = T)
+  ) %>%
+  gather(key = "variable", value= "value", -Race) %>%
+  separate(variable, into = "stat", sep = "_") %>%
+  spread(key = "stat", value = "value") %>%
+  mutate(Race = factor(Race, levels = 
+                         c("Asian", "Hispanic", "White", 
+                           "Other", "Nat. Am.", "Black"))
+  ) %>%
+ggplot()+
+  geom_bar(aes(x=Race, y=`Confinement Days`),
+           fill = "yellow",
+           stat="identity", 
+           position = position_dodge2())+
+  geom_text(aes(x=Race, y=`Confinement Days`+5,
+              label = round(`Confinement Days`,0)), 
+          position = position_dodge2(width = 1))+
+  labs(title = "Figure 2: Confinement Length by Race")+
+  theme_minimal()+
+  theme(legend.position = "none")
+  
+#probation plot
+monsanc.short %>%
+  select(race_impute, prob_days) %>%
+  filter(!is.na(race_impute)) %>%
+  mutate(Race = case_when(
+    race_impute=="asian"~"Asian",
+    race_impute=="black"~"Black",
+    race_impute=="hispanic"~"Hispanic",
+    race_impute=="nat. am."~"Nat. Am.",
+    race_impute=="other"~"Other",
+    race_impute=="white"~"White"
+  )) %>%
+  select(-race_impute) %>%
+  group_by(Race) %>%
+  summarize(
+    `Probation Days`= mean(prob_days, na.rm = T)
+  ) %>%
+  gather(key = "variable", value= "value", -Race) %>%
+  separate(variable, into = "stat", sep = "_") %>%
+  spread(key = "stat", value = "value") %>%
+  mutate(Race = factor(Race, levels = 
+                         c("Asian", "Hispanic", "White", 
+                           "Other", "Nat. Am.", "Black"))
+  ) %>%
+ggplot()+
+  geom_bar(aes(x=Race, y=`Probation Days`),
+           fill = "orange",
+           stat="identity", 
+           position = position_dodge2())+
+  geom_text(aes(x=Race, y=`Probation Days`+20,
+              label = round(`Probation Days`,0)), 
+          position = position_dodge2(width = 1))+
+  labs(title = "Figure 3: Probation Length by Race")+
+  theme_minimal()+
+  theme(legend.position = "none")
+```
+
+```{r}
+#Multivariate Regression - when all predictors are identical across models
+  #equivalent to separate OLS, but more efficient and takes into account error covariance
+
+#multivariate fixed effects regression
+mv.fe <- lm(cbind(total_ff_log, conf_minus_stayed_log, prob_days_log)~
+              black+hispanic+asian+nativeam+other.race+race.miss+
+           male+log(age)+priors+perc_credit+trial_flag+felony+gross.mis+
+             drug+alcohol.dui+other.offense+
+           as.factor(filed_county)+as.factor(sentence_year), data = monsanc.short)
+summary(mv.fe)
+
+#descriptive stats for mv.fe model 
+monsanc.short$miss <- seq_len(nrow(monsanc.short)) %in% na.action(mv.fe)
+
+#descriptive statistics for variables in analysis
+ds <- monsanc.short %>% 
+  filter(miss==FALSE) %>%
+  select(total_ff, conf_minus_stayed,
+         white,black,hispanic,asian,nativeam,other.race, race.miss,
+         male,age,priors,trial_flag,
+         felony,gross.mis,mis, petty.mis,
+         violent,drug,alcohol.dui,other.offense, 
+         cap_ratio) %>%
+  gather() %>% 
+  group_by(key) %>% 
+  summarize(
+    mean = round(mean(value, na.rm=T),2),
+    sd = round(sd(value, na.rm=T),2),
+    min = min(value, na.rm=T),
+    max = max(value, na.rm=T)
+  )
+
+print(ds, n = Inf)
+```
+
+
+```{r}
+#FE instrumental Variables Regression 
+monsanc.short <- monsanc.short %>%
+  select(total_ff_log,conf_minus_stayed_log,prob_days_log,
+                 black,hispanic,asian,nativeam,other.race,race.miss,male,age,
+                  priors,perc_credit,trial_flag,felony,gross.mis,
+                  drug,alcohol.dui,other.offense,filed_county,sentence_year,cap_ratio) %>%
+  drop_na()
+
+#LFO
+iv.lfo <- ivreg(total_ff_log~conf_minus_stayed_log+
+                 black+hispanic+asian+nativeam+other.race+race.miss+male+log(age)+
+                  priors+perc_credit+trial_flag+felony+gross.mis+
+                  drug+alcohol.dui+other.offense+as.factor(filed_county)+as.factor(sentence_year)| 
+              .-conf_minus_stayed_log+cap_ratio, 
+           data = monsanc.short)
+
+summary(iv.lfo, diagnostics=T)
+
+#Probation
+iv.prob <- ivreg(prob_days_log~conf_minus_stayed_log+
+                 black+hispanic+asian+nativeam+other.race+race.miss+male+log(age)+
+                  priors+perc_credit+trial_flag+felony+gross.mis+
+                  drug+alcohol.dui+other.offense+as.factor(filed_county)+as.factor(sentence_year)| 
+              .-conf_minus_stayed_log+cap_ratio, 
+           data = monsanc.short)
+
+summary(iv.prob, diagnostics=T)
+```
+
+# Felony Level Analysis
+
+```{r}
+#bar graph - median household income comes from ACS 2017 5-year estimates
+adj <- data.frame(Race = c("Asian", "Black", "Hispanic", "Nat. Am.", "Other", "White"),
+                  race_med_inc = c(71865, 32743, 46232, 36017, 42476, 69069), 
+                  ovr_med_inc = rep(65699, 6))
+
+monsanc.felony %>%
+  select(race_impute, total_ff) %>%
+  filter(!is.na(race_impute)) %>%
+  mutate(Race = case_when(
+    race_impute=="asian"~"Asian",
+    race_impute=="black"~"Black",
+    race_impute=="hispanic"~"Hispanic",
+    race_impute=="nat. am."~"Nat. Am.",
+    race_impute=="other"~"Other",
+    race_impute=="white"~"White"
+  )) %>%
+  select(-race_impute) %>%
+  left_join(adj, by = "Race")%>%
+  mutate(race_adj = (ovr_med_inc/race_med_inc)) %>%
+  group_by(Race) %>%
+  summarize(
+    `Raw_USD`= mean(total_ff, na.rm = T),
+    `Adjusted_USD` = mean(total_ff*race_adj, na.rm = T),
+    `Raw_sd` = sd(total_ff, na.rm = T),
+    `Adjusted_sd` = sd(total_ff*race_adj, na.rm=T)
+  ) %>%
+  gather(key = "variable", value= "value", -Race) %>%
+  separate(variable, into = c("adjusted", "stat"), sep = "_") %>%
+  spread(key = "stat", value = "value") %>%
+  mutate(Race = factor(Race, levels = 
+                         c("White", "Hispanic", "Nat. Am.", 
+                           "Other", "Asian", "Black")),
+         `Income Adjusted` = factor(adjusted, levels = c("Raw", "Adjusted"))) %>%
+  select(-adjusted) %>%
+ggplot()+
+  geom_bar(aes(x=Race, y=USD, fill=`Income Adjusted`), 
+           stat="identity", 
+           position = position_dodge2())+
+  geom_text(aes(x=Race, y=USD+25, group=`Income Adjusted`,
+                label = round(USD,0)),
+            position = position_dodge2(width = 1))+
+  labs(title = "Figure 1: Fine/Fee Orders by Race",
+       fill = "")+
+  scale_fill_manual(values = c("#00AFBB", "#FC4E07"))+
+  theme_minimal()
+
+ggsave("figure_1.png", device = "png")
+
+#confinement bar graph
+monsanc.felony %>%
+    select(race_impute, conf_minus_stayed) %>%
+  filter(!is.na(race_impute)) %>%
+  mutate(Race = case_when(
+    race_impute=="asian"~"Asian",
+    race_impute=="black"~"Black",
+    race_impute=="hispanic"~"Hispanic",
+    race_impute=="nat. am."~"Nat. Am.",
+    race_impute=="other"~"Other",
+    race_impute=="white"~"White"
+  )) %>%
+  select(-race_impute) %>%
+  group_by(Race) %>%
+  summarize(
+    `Confinement Days`= mean(conf_minus_stayed, na.rm = T)
+  ) %>%
+  gather(key = "variable", value= "value", -Race) %>%
+  separate(variable, into = "stat", sep = "_") %>%
+  spread(key = "stat", value = "value") %>%
+  mutate(Race = factor(Race, levels = 
+                         c("White", "Hispanic", "Nat. Am.", 
+                           "Other", "Asian", "Black"))
+  ) %>%
+ggplot()+
+  geom_bar(aes(x=Race, y=`Confinement Days`),
+           fill = "yellow",
+           stat="identity", 
+           position = position_dodge2())+
+  geom_text(aes(x=Race, y=`Confinement Days`+20,
+              label = round(`Confinement Days`,0)), 
+          position = position_dodge2(width = 1))+
+  labs(title = "Figure 2: Confinement Length by Race")+
+  theme_minimal()+
+  theme(legend.position = "none")
+
+ggsave("figure_2.png", device = "png")
+
+#probation bar graph
+monsanc.felony %>%
+  select(race_impute, prob_days) %>%
+  filter(!is.na(race_impute)) %>%
+  mutate(Race = case_when(
+    race_impute=="asian"~"Asian",
+    race_impute=="black"~"Black",
+    race_impute=="hispanic"~"Hispanic",
+    race_impute=="nat. am."~"Nat. Am.",
+    race_impute=="other"~"Other",
+    race_impute=="white"~"White"
+  )) %>%
+  select(-race_impute) %>%
+  group_by(Race) %>%
+  summarize(
+    `Probation Days`= mean(prob_days, na.rm = T)
+  ) %>%
+  gather(key = "variable", value= "value", -Race) %>%
+  separate(variable, into = "stat", sep = "_") %>%
+  spread(key = "stat", value = "value") %>%
+  mutate(Race = factor(Race, levels = 
+                         c("White", "Hispanic", "Nat. Am.", 
+                           "Other", "Asian", "Black"))
+  ) %>%
+ggplot()+
+  geom_bar(aes(x=Race, y=`Probation Days`),
+           fill = "orange",
+           stat="identity", 
+           position = position_dodge2())+
+  geom_text(aes(x=Race, y=`Probation Days`+45,
+              label = round(`Probation Days`,0)), 
+          position = position_dodge2(width = 1))+
+  labs(title = "Figure 3: Probation Length by Race")+
+  theme_minimal()+
+  theme(legend.position = "none")
+
+ggsave("figure_3.png", device = "png")
+```
+
+```{r}
+mv.fe.f <- lm(cbind(total_ff_log, conf_minus_stayed_log, prob_days_log)~
+                black+hispanic+asian+nativeam+other.race+race.miss+
+           male+log(age)+trial_flag+severity_conv+chpoints_final+
+             drug+alcohol.dui+other.offense+
+           as.factor(filed_county)+as.factor(sentence_year), data = monsanc.felony)
+summary(mv.fe.f)
+
+#descriptive stats for mv.fe model 
+monsanc.felony$miss <- seq_len(nrow(monsanc.felony)) %in% na.action(mv.fe.f)
+
+#descriptive statistics for variables in analysis
+ds <- monsanc.felony %>% 
+  filter(miss==FALSE) %>%
+  select(total_ff, conf_minus_stayed,
+         white,black,hispanic,asian,nativeam,other.race,race.miss,
+         male,age,perc_credit,trial_flag,severity_conv,chpoints_final,
+         violent,drug,alcohol.dui,other.offense, 
+         cap_ratio) %>%
+  gather() %>% 
+  group_by(key) %>% 
+  summarize(
+    mean = round(mean(value, na.rm=T),2),
+    sd = round(sd(value, na.rm=T),2),
+    min = min(value, na.rm=T),
+    max = max(value, na.rm=T)
+  )
+
+print(ds, n = Inf)
+```
+
+```{r}
+#FE instrumental Variables Regression 
+monsanc.felony <- monsanc.felony %>%
+  select(total_ff_log,conf_minus_stayed_log,prob_days_log,
+                 black,hispanic,asian,nativeam,other.race,race.miss,male,age,
+                  priors,perc_credit,trial_flag,felony,gross.mis,
+                  drug,alcohol.dui,other.offense,filed_county,sentence_year,cap_ratio) %>%
+  drop_na()
+
+#LFO
+iv.lfo.f <- ivreg(total_ff_log~conf_minus_stayed_log+
+                 black+hispanic+asian+nativeam+other.race+race.miss+male+log(age)+
+                  priors+perc_credit+trial_flag+felony+gross.mis+
+                  drug+alcohol.dui+other.offense+as.factor(filed_county)+as.factor(sentence_year)| 
+              .-conf_minus_stayed_log+cap_ratio, 
+           data = monsanc.felony)
+
+summary(iv.lfo.f, diagnostics=T)
+
+#Probation
+iv.prob <- ivreg(prob_days_log~conf_minus_stayed_log+
+                 black+hispanic+asian+nativeam+other.race+race.miss+male+log(age)+
+                  priors+perc_credit+trial_flag+felony+gross.mis+
+                  drug+alcohol.dui+other.offense+as.factor(filed_county)+as.factor(sentence_year)| 
+              .-conf_minus_stayed_log+cap_ratio, 
+           data = monsanc.felony)
+
+summary(iv.prob, diagnostics=T)
+
+```
+
+# Misdemeanor and Gross Misdemeanor Level
+
+```{r}
+monsanc.mgm <- monsanc.short %>%
+  filter(charge_degree!="Felony")
+
+#bar graph - median household income comes from ACS 2017 5-year estimates
+adj <- data.frame(Race = c("Asian", "Black", "Hispanic", "Nat. Am.", "Other", "White"),
+                  race_med_inc = c(71865, 32743, 46232, 36017, 42476, 69069), 
+                  ovr_med_inc = rep(65699, 6))
+
+monsanc.mgm %>%
+  select(race_impute, total_ff) %>%
+  filter(!is.na(race_impute)) %>%
+  mutate(Race = case_when(
+    race_impute=="asian"~"Asian",
+    race_impute=="black"~"Black",
+    race_impute=="hispanic"~"Hispanic",
+    race_impute=="nat. am."~"Nat. Am.",
+    race_impute=="other"~"Other",
+    race_impute=="white"~"White"
+  )) %>%
+  select(-race_impute) %>%
+  left_join(adj, by = "Race")%>%
+  mutate(race_adj = (ovr_med_inc/race_med_inc)) %>%
+  group_by(Race) %>%
+  summarize(
+    `Raw_USD`= mean(total_ff, na.rm = T),
+    `Adjusted_USD` = mean(total_ff*race_adj, na.rm = T),
+    `Raw_sd` = sd(total_ff, na.rm = T),
+    `Adjusted_sd` = sd(total_ff*race_adj, na.rm=T)
+  ) %>%
+  gather(key = "variable", value= "value", -Race) %>%
+  separate(variable, into = c("adjusted", "stat"), sep = "_") %>%
+  spread(key = "stat", value = "value") %>%
+  mutate(Race = factor(Race, levels = 
+                         c("White", "Hispanic", "Nat. Am.", 
+                           "Other", "Asian", "Black")),
+         `Income Adjusted` = factor(adjusted, levels = c("Raw", "Adjusted"))) %>%
+  select(-adjusted) %>%
+ggplot()+
+  geom_bar(aes(x=Race, y=USD, fill=`Income Adjusted`), 
+           stat="identity", 
+           position = position_dodge2())+
+  geom_text(aes(x=Race, y=USD+25, group=`Income Adjusted`,
+                label = round(USD,0)),
+            position = position_dodge2(width = 1))+
+  labs(title = "Figure 1: Fine/Fee Orders by Race",
+       fill = "")+
+  scale_fill_manual(values = c("#00AFBB", "#FC4E07"))+
+  theme_minimal()
+
+ggsave("figure_1.png", device = "png")
+
+#confinement bar graph
+monsanc.mgm %>%
+    select(race_impute, conf_minus_stayed) %>%
+  filter(!is.na(race_impute)) %>%
+  mutate(Race = case_when(
+    race_impute=="asian"~"Asian",
+    race_impute=="black"~"Black",
+    race_impute=="hispanic"~"Hispanic",
+    race_impute=="nat. am."~"Nat. Am.",
+    race_impute=="other"~"Other",
+    race_impute=="white"~"White"
+  )) %>%
+  select(-race_impute) %>%
+  group_by(Race) %>%
+  summarize(
+    `Confinement Days`= mean(conf_minus_stayed, na.rm = T)
+  ) %>%
+  gather(key = "variable", value= "value", -Race) %>%
+  separate(variable, into = "stat", sep = "_") %>%
+  spread(key = "stat", value = "value") %>%
+  mutate(Race = factor(Race, levels = 
+                         c("White", "Hispanic", "Nat. Am.", 
+                           "Other", "Asian", "Black"))
+  ) %>%
+ggplot()+
+  geom_bar(aes(x=Race, y=`Confinement Days`),
+           fill = "yellow",
+           stat="identity", 
+           position = position_dodge2())+
+  geom_text(aes(x=Race, y=`Confinement Days`+20,
+              label = round(`Confinement Days`,0)), 
+          position = position_dodge2(width = 1))+
+  labs(title = "Figure 2: Confinement Length by Race")+
+  theme_minimal()+
+  theme(legend.position = "none")
+
+ggsave("figure_2.png", device = "png")
+
+#probation bar graph
+monsanc.mgm %>%
+  select(race_impute, prob_days) %>%
+  filter(!is.na(race_impute)) %>%
+  mutate(Race = case_when(
+    race_impute=="asian"~"Asian",
+    race_impute=="black"~"Black",
+    race_impute=="hispanic"~"Hispanic",
+    race_impute=="nat. am."~"Nat. Am.",
+    race_impute=="other"~"Other",
+    race_impute=="white"~"White"
+  )) %>%
+  select(-race_impute) %>%
+  group_by(Race) %>%
+  summarize(
+    `Probation Days`= mean(prob_days, na.rm = T)
+  ) %>%
+  gather(key = "variable", value= "value", -Race) %>%
+  separate(variable, into = "stat", sep = "_") %>%
+  spread(key = "stat", value = "value") %>%
+  mutate(Race = factor(Race, levels = 
+                         c("White", "Hispanic", "Nat. Am.", 
+                           "Other", "Asian", "Black"))
+  ) %>%
+ggplot()+
+  geom_bar(aes(x=Race, y=`Probation Days`),
+           fill = "orange",
+           stat="identity", 
+           position = position_dodge2())+
+  geom_text(aes(x=Race, y=`Probation Days`+45,
+              label = round(`Probation Days`,0)), 
+          position = position_dodge2(width = 1))+
+  labs(title = "Figure 3: Probation Length by Race")+
+  theme_minimal()+
+  theme(legend.position = "none")
+
+ggsave("figure_3.png", device = "png")
+```
+
+```{r}
+#Multivariate Regression - when all predictors are identical across models
+  #equivalent to separate OLS, but more efficient and takes into account error covariance
+
+#multivariate fixed effects regression
+mv.fe.mgm <- lm(cbind(total_ff_log, conf_minus_stayed_log, prob_days_log)~
+              black+hispanic+asian+nativeam+other.race+race.miss+
+           male+log(age)+priors+perc_credit+trial_flag+gross.mis+
+             drug+alcohol.dui+other.offense+
+           as.factor(filed_county)+as.factor(sentence_year), data = monsanc.short)
+summary(mv.fe.mgm)
+
+#descriptive stats for mv.fe model 
+monsanc.short.mgm$miss <- seq_len(nrow(monsanc.short.mgm)) %in% na.action(mv.fe.mgm)
+
+#descriptive statistics for variables in analysis
+ds <- monsanc.short.mgm %>% 
+  filter(miss==FALSE) %>%
+  select(total_ff, conf_minus_stayed,
+         white,black,hispanic,asian,nativeam,other.race,race.miss,
+         male,age,priors,trial_flag,gross.mis,mis, petty.mis,
+         violent,drug,alcohol.dui,other.offense, 
+         cap_ratio) %>%
+  gather() %>% 
+  group_by(key) %>% 
+  summarize(
+    mean = round(mean(value, na.rm=T),2),
+    sd = round(sd(value, na.rm=T),2),
+    min = min(value, na.rm=T),
+    max = max(value, na.rm=T)
+  )
+
+print(ds, n = Inf)
+```
+
+
+```{r}
+#FE instrumental Variables Regression  
+monsanc.mgm <- monsanc.mgm %>%
+  select(total_ff_log,conf_minus_stayed_log,prob_days_log,
+                 black,hispanic,asian,nativeam,other.race,race.miss,male,age,
+                  priors,perc_credit,trial_flag,felony,gross.mis,
+                  drug,alcohol.dui,other.offense,filed_county,sentence_year,cap_ratio) %>%
+  drop_na()
+
+#LFO
+iv.conf.mgm <- ivreg(total_ff_log~conf_minus_stayed_log+
+                 black+hispanic+asian+nativeam+other.race+race.miss+male+log(age)+
+                  priors+perc_credit+trial_flag+gross.mis+
+                  drug+alcohol.dui+other.offense+as.factor(filed_county)+as.factor(sentence_year)| 
+              .-conf_minus_stayed_log+cap_ratio, 
+           data = monsanc.mgm)
+
+summary(iv.conf.mgm, diagnostics=T)
+
+#Probation
+iv.prob.mgm <- ivreg(prob_days_log~conf_minus_stayed_log+
+                 black+hispanic+asian+nativeam+other.race+race.miss+male+log(age)+
+                  priors+perc_credit+trial_flag+gross.mis+
+                  drug+alcohol.dui+other.offense+as.factor(filed_county)+as.factor(sentence_year)| 
+              .-conf_minus_stayed_log+cap_ratio, 
+           data = monsanc.mgm)
+
+summary(iv.prob.mgm, diagnostics=T)
+```
