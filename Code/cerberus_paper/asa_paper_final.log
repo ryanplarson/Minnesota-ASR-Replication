@@ -1,4 +1,4 @@
-This is pdfTeX, Version 3.141592653-2.6-1.40.25 (MiKTeX 23.4) (preloaded format=pdflatex 2023.6.13)  12 JUL 2023 12:14
+This is pdfTeX, Version 3.141592653-2.6-1.40.25 (MiKTeX 23.4) (preloaded format=pdflatex 2023.6.13)  19 JUL 2023 17:51
 entering extended mode
  restricted \write18 enabled.
  %&-line parsing enabled.
@@ -256,7 +256,9 @@ Package: array 2022/09/04 v2.5g Tabular extension package (FMi)
 \extratabsurround=\skip55
 \backup@length=\skip56
 \ar@cellbox=\box56
-)) (C:\Users\rlarson21\AppData\Roaming\MiKTeX\tex/latex/booktabs\booktabs.sty
+)) (C:\Program Files\MiKTeX\tex/latex/graphics\lscape.sty
+Package: lscape 2020/05/28 v3.02 Landscape Pages (DPC)
+) (C:\Users\rlarson21\AppData\Roaming\MiKTeX\tex/latex/booktabs\booktabs.sty
 Package: booktabs 2020/01/12 v1.61803398 Publication quality tables
 \heavyrulewidth=\dimen167
 \lightrulewidth=\dimen168
@@ -325,9 +327,6 @@ Package: pdflscape 2022-10-27 v0.13 Display of landscape pages in PDF
 data.sty
 Package: pdflscape-nometadata 2022-10-28 v0.13 Display of landscape pages in PD
 F (HO)
-(C:\Program Files\MiKTeX\tex/latex/graphics\lscape.sty
-Package: lscape 2020/05/28 v3.02 Landscape Pages (DPC)
-)
 Package pdflscape Info: Auto-detected driver: pdftex on input line 81.
 )) (C:\Users\rlarson21\AppData\Roaming\MiKTeX\tex/latex/tabu\tabu.sty
 Package: tabu 2019/01/11 v2.9 - flexible LaTeX tabulars (FC+tabu-fixed)
@@ -517,7 +516,7 @@ File: bkm-pdftex.def 2020-11-06 v1.29 bookmark driver for pdfTeX (HO)
 Package: xurl 2022/01/09 v 0.10 modify URL breaks
 )
 LaTeX Font Info:    Trying to load font information for T1+lmr on input line 13
-0.
+3.
 (C:\Program Files\MiKTeX\tex/latex/lm\t1lmr.fd
 File: t1lmr.fd 2015/05/01 v1.6.1 Font defs for Latin Modern
 ) (C:\Program Files\MiKTeX\tex/latex/l3backend\l3backend-pdftex.def
@@ -540,37 +539,37 @@ LaTeX Warning: Label `' multiply defined.
 )
 \openout1 = `asa_paper_final.aux'.
 
-LaTeX Font Info:    Checking defaults for OML/cmm/m/it on input line 130.
-LaTeX Font Info:    ... okay on input line 130.
-LaTeX Font Info:    Checking defaults for OMS/cmsy/m/n on input line 130.
-LaTeX Font Info:    ... okay on input line 130.
-LaTeX Font Info:    Checking defaults for OT1/cmr/m/n on input line 130.
-LaTeX Font Info:    ... okay on input line 130.
-LaTeX Font Info:    Checking defaults for T1/cmr/m/n on input line 130.
-LaTeX Font Info:    ... okay on input line 130.
-LaTeX Font Info:    Checking defaults for TS1/cmr/m/n on input line 130.
-LaTeX Font Info:    ... okay on input line 130.
-LaTeX Font Info:    Checking defaults for OMX/cmex/m/n on input line 130.
-LaTeX Font Info:    ... okay on input line 130.
-LaTeX Font Info:    Checking defaults for U/cmr/m/n on input line 130.
-LaTeX Font Info:    ... okay on input line 130.
-LaTeX Font Info:    Checking defaults for PD1/pdf/m/n on input line 130.
-LaTeX Font Info:    ... okay on input line 130.
-LaTeX Font Info:    Checking defaults for PU/pdf/m/n on input line 130.
-LaTeX Font Info:    ... okay on input line 130.
-LaTeX Info: Redefining \microtypecontext on input line 130.
-Package microtype Info: Applying patch `item' on input line 130.
-Package microtype Info: Applying patch `toc' on input line 130.
-Package microtype Info: Applying patch `eqnum' on input line 130.
-Package microtype Info: Applying patch `footnote' on input line 130.
-Package microtype Info: Applying patch `verbatim' on input line 130.
+LaTeX Font Info:    Checking defaults for OML/cmm/m/it on input line 133.
+LaTeX Font Info:    ... okay on input line 133.
+LaTeX Font Info:    Checking defaults for OMS/cmsy/m/n on input line 133.
+LaTeX Font Info:    ... okay on input line 133.
+LaTeX Font Info:    Checking defaults for OT1/cmr/m/n on input line 133.
+LaTeX Font Info:    ... okay on input line 133.
+LaTeX Font Info:    Checking defaults for T1/cmr/m/n on input line 133.
+LaTeX Font Info:    ... okay on input line 133.
+LaTeX Font Info:    Checking defaults for TS1/cmr/m/n on input line 133.
+LaTeX Font Info:    ... okay on input line 133.
+LaTeX Font Info:    Checking defaults for OMX/cmex/m/n on input line 133.
+LaTeX Font Info:    ... okay on input line 133.
+LaTeX Font Info:    Checking defaults for U/cmr/m/n on input line 133.
+LaTeX Font Info:    ... okay on input line 133.
+LaTeX Font Info:    Checking defaults for PD1/pdf/m/n on input line 133.
+LaTeX Font Info:    ... okay on input line 133.
+LaTeX Font Info:    Checking defaults for PU/pdf/m/n on input line 133.
+LaTeX Font Info:    ... okay on input line 133.
+LaTeX Info: Redefining \microtypecontext on input line 133.
+Package microtype Info: Applying patch `item' on input line 133.
+Package microtype Info: Applying patch `toc' on input line 133.
+Package microtype Info: Applying patch `eqnum' on input line 133.
+Package microtype Info: Applying patch `footnote' on input line 133.
+Package microtype Info: Applying patch `verbatim' on input line 133.
 Package microtype Info: Generating PDF output.
 Package microtype Info: Character protrusion enabled (level 2).
 Package microtype Info: Using protrusion set `basicmath'.
 Package microtype Info: Automatic font expansion enabled (level 2),
 (microtype)             stretch: 20, shrink: 20, step: 1, non-selected.
 Package microtype Info: Using default expansion set `alltext-nott'.
-LaTeX Info: Redefining \showhyphens on input line 130.
+LaTeX Info: Redefining \showhyphens on input line 133.
 Package microtype Info: No adjustment of tracking.
 Package microtype Info: No adjustment of interword spacing.
 Package microtype Info: No adjustment of character kerning.
@@ -631,41 +630,41 @@ File: epstopdf-sys.cfg 2021/03/18 v2.0 Configuration of epstopdf for MiKTeX
 * \@reversemarginfalse
 * (1in=72.27pt=25.4mm, 1cm=28.453pt)
 
-Package hyperref Info: Link coloring OFF on input line 130.
+Package hyperref Info: Link coloring OFF on input line 133.
 LaTeX Font Info:    Trying to load font information for OT1+lmr on input line 1
-32.
+35.
 (C:\Program Files\MiKTeX\tex/latex/lm\ot1lmr.fd
 File: ot1lmr.fd 2015/05/01 v1.6.1 Font defs for Latin Modern
 )
 LaTeX Font Info:    Trying to load font information for OML+lmm on input line 1
-32.
+35.
 (C:\Program Files\MiKTeX\tex/latex/lm\omllmm.fd
 File: omllmm.fd 2015/05/01 v1.6.1 Font defs for Latin Modern
 )
 LaTeX Font Info:    Trying to load font information for OMS+lmsy on input line 
-132.
+135.
 (C:\Program Files\MiKTeX\tex/latex/lm\omslmsy.fd
 File: omslmsy.fd 2015/05/01 v1.6.1 Font defs for Latin Modern
 )
 LaTeX Font Info:    Trying to load font information for OMX+lmex on input line 
-132.
+135.
 (C:\Program Files\MiKTeX\tex/latex/lm\omxlmex.fd
 File: omxlmex.fd 2015/05/01 v1.6.1 Font defs for Latin Modern
 )
 LaTeX Font Info:    External font `lmex10' loaded for size
-(Font)              <12> on input line 132.
+(Font)              <12> on input line 135.
 LaTeX Font Info:    External font `lmex10' loaded for size
-(Font)              <8> on input line 132.
+(Font)              <8> on input line 135.
 LaTeX Font Info:    External font `lmex10' loaded for size
-(Font)              <6> on input line 132.
-LaTeX Font Info:    Trying to load font information for U+msa on input line 132
+(Font)              <6> on input line 135.
+LaTeX Font Info:    Trying to load font information for U+msa on input line 135
 .
 (C:\Program Files\MiKTeX\tex/latex/amsfonts\umsa.fd
 File: umsa.fd 2013/01/14 v3.01 AMS symbols A
 ) (C:\Users\rlarson21\AppData\Roaming\MiKTeX\tex/latex/microtype\mt-msa.cfg
 File: mt-msa.cfg 2006/02/04 v1.1 microtype config. file: AMS symbols (a) (RS)
 )
-LaTeX Font Info:    Trying to load font information for U+msb on input line 132
+LaTeX Font Info:    Trying to load font information for U+msb on input line 135
 .
 (C:\Program Files\MiKTeX\tex/latex/amsfonts\umsb.fd
 File: umsb.fd 2013/01/14 v3.01 AMS symbols B
@@ -673,49 +672,49 @@ File: umsb.fd 2013/01/14 v3.01 AMS symbols B
 File: mt-msb.cfg 2005/06/01 v1.0 microtype config. file: AMS symbols (b) (RS)
 )
 LaTeX Font Info:    Trying to load font information for T1+lmtt on input line 1
-37.
+40.
 (C:\Program Files\MiKTeX\tex/latex/lm\t1lmtt.fd
 File: t1lmtt.fd 2015/05/01 v1.6.1 Font defs for Latin Modern
 )
 LaTeX Font Info:    Font shape `T1/lmtt/bx/n' in size <10.95> not available
-(Font)              Font shape `T1/lmtt/b/n' tried instead on input line 138.
+(Font)              Font shape `T1/lmtt/b/n' tried instead on input line 141.
 LaTeX Font Info:    Trying to load font information for TS1+lmtt on input line 
-175.
+178.
 (C:\Program Files\MiKTeX\tex/latex/lm\ts1lmtt.fd
 File: ts1lmtt.fd 2015/05/01 v1.6.1 Font defs for Latin Modern
 )
-Overfull \hbox (41.88226pt too wide) in paragraph at lines 175--175
+Overfull \hbox (41.88226pt too wide) in paragraph at lines 178--178
 []\T1/lmtt/m/n/10.95 ## Warning: One or more parsing issues, call \TS1/lmtt/m/n
 /10.95 `\T1/lmtt/m/n/10.95 problems()\TS1/lmtt/m/n/10.95 ` \T1/lmtt/m/n/10.95 o
 n your data frame for details,[] 
  []
 
 
-Overfull \hbox (7.38986pt too wide) in paragraph at lines 189--189
+Overfull \hbox (7.38986pt too wide) in paragraph at lines 192--192
 []\T1/lmtt/m/n/10.95 ## -- Column specification -------------------------------
 -------------------------[] 
  []
 
 
-Overfull \hbox (1.64113pt too wide) in paragraph at lines 189--189
+Overfull \hbox (1.64113pt too wide) in paragraph at lines 192--192
 []\T1/lmtt/m/n/10.95 ## chr   (32): current_case_number, current_case_status_de
 sc, case_wcl_type_des...[] 
  []
 
 
-Overfull \hbox (1.64113pt too wide) in paragraph at lines 189--189
+Overfull \hbox (1.64113pt too wide) in paragraph at lines 192--192
 []\T1/lmtt/m/n/10.95 ## dbl  (130): case_mkey, file_year, fine_ordered, fine_ou
 tstanding, fine_colle...[] 
  []
 
 
-Overfull \hbox (1.64113pt too wide) in paragraph at lines 189--189
+Overfull \hbox (1.64113pt too wide) in paragraph at lines 192--192
 []\T1/lmtt/m/n/10.95 ## lgl    (7): incident_id, hf_flag, petty_flag, misdem_fl
 ag, intersection, int...[] 
  []
 
 
-Overfull \hbox (1.64113pt too wide) in paragraph at lines 189--189
+Overfull \hbox (1.64113pt too wide) in paragraph at lines 192--192
 []\T1/lmtt/m/n/10.95 ## dttm   (4): case_filed_date, case_first_final_dispositi
 on_date, current_case...[] 
  []
@@ -725,7 +724,7 @@ on_date, current_case...[]
 {C:/Users/rlarson21/AppData/Local/MiKTeX/fonts/map/pdftex/pdftex.map}{C:/Progra
 m Files/MiKTeX/fonts/enc/dvips/lm/lm-ec.enc}{C:/Program Files/MiKTeX/fonts/enc/
 dvips/lm/lm-ts1.enc}]
-Overfull \hbox (13.1386pt too wide) in paragraph at lines 189--189
+Overfull \hbox (13.1386pt too wide) in paragraph at lines 192--192
 []\T1/lmtt/m/n/10.95 ## i Specify the column types or set \TS1/lmtt/m/n/10.95 `
 \T1/lmtt/m/n/10.95 show_col_types = FALSE\TS1/lmtt/m/n/10.95 ` \T1/lmtt/m/n/10.
 95 to quiet this message.[] 
@@ -736,30 +735,30 @@ pdfTeX warning (ext4): destination with the same identifier (name{page.}) has b
 een already used, duplicate ignored
 <to be read again> 
                    \relax 
-l.257 \end{Shaded}
+l.260 \end{Shaded}
                    [2]
 LaTeX Font Info:    External font `lmex10' loaded for size
-(Font)              <10.95> on input line 262.
+(Font)              <10.95> on input line 265.
 
-Overfull \hbox (6.43883pt too wide) in paragraph at lines 262--315
+Overfull \hbox (6.43883pt too wide) in paragraph at lines 265--318
  [][] 
  []
 
 
-LaTeX Warning: Float too large for page by 44.69734pt on input line 315.
+LaTeX Warning: Float too large for page by 44.69734pt on input line 318.
 
 
 pdfTeX warning (ext4): destination with the same identifier (name{page.}) has b
 een already used, duplicate ignored
 <to be read again> 
                    \relax 
-l.368 \end{Shaded}
+l.371 \end{Shaded}
                    [3]
 pdfTeX warning (ext4): destination with the same identifier (name{page.}) has b
 een already used, duplicate ignored
 <to be read again> 
                    \relax 
-l.368 \end{Shaded}
+l.371 \end{Shaded}
                    [4]
 <asa_paper_final_files/figure-latex/unnamed-chunk-5-1.pdf, id=36, 469.755pt x 3
 25.215pt>
@@ -767,21 +766,21 @@ File: asa_paper_final_files/figure-latex/unnamed-chunk-5-1.pdf Graphic file (ty
 pe pdf)
 <use asa_paper_final_files/figure-latex/unnamed-chunk-5-1.pdf>
 Package pdftex.def Info: asa_paper_final_files/figure-latex/unnamed-chunk-5-1.p
-df  used on input line 370.
+df  used on input line 373.
 (pdftex.def)             Requested size: 469.75386pt x 325.2142pt.
 
 pdfTeX warning (ext4): destination with the same identifier (name{page.}) has b
 een already used, duplicate ignored
 <to be read again> 
                    \relax 
-l.376 ...+\theta_{dk}+\lambda_{tk}+\epsilon_{ik}\]
+l.379 ...+\theta_{dk}+\lambda_{tk}+\epsilon_{ik}\]
                                                    [5 <./asa_paper_final_files/
 figure-latex/unnamed-chunk-5-1.pdf>]
 pdfTeX warning (ext4): destination with the same identifier (name{page.}) has b
 een already used, duplicate ignored
 <to be read again> 
                    \relax 
-l.593 \end{verbatim}
+l.596 \end{verbatim}
                      [6{C:/Program Files/MiKTeX/fonts/enc/dvips/lm/lm-mathit.en
 c}{C:/Program Files/MiKTeX/fonts/enc/dvips/lm/lm-rm.enc}{C:/Program Files/MiKTe
 X/fonts/enc/dvips/lm/lm-mathex.enc}]
@@ -789,21 +788,21 @@ pdfTeX warning (ext4): destination with the same identifier (name{page.}) has b
 een already used, duplicate ignored
 <to be read again> 
                    \relax 
-l.593 \end{verbatim}
+l.596 \end{verbatim}
                      [7]
 pdfTeX warning (ext4): destination with the same identifier (name{page.}) has b
 een already used, duplicate ignored
 <to be read again> 
                    \relax 
-l.593 \end{verbatim}
+l.596 \end{verbatim}
                      [8]
 pdfTeX warning (ext4): destination with the same identifier (name{page.}) has b
 een already used, duplicate ignored
 <to be read again> 
                    \relax 
-l.593 \end{verbatim}
+l.596 \end{verbatim}
                      [9]
-Underfull \vbox (badness 10000) detected at line 633
+Underfull \vbox (badness 10000) detected at line 636
  []
 
 
@@ -811,101 +810,89 @@ pdfTeX warning (ext4): destination with the same identifier (name{page.}) has b
 een already used, duplicate ignored
 <to be read again> 
                    \relax 
-l.633 \end{Shaded}
+l.636 \end{Shaded}
                    [10]
+pdfTeX warning (ext4): destination with the same identifier (name{page.}) has b
+een already used, duplicate ignored
+<to be read again> 
+                   \relax 
+l.638 \begin{landscape}
+                        [11]
 LaTeX Font Info:    External font `lmex10' loaded for size
-(Font)              <9> on input line 675.
+(Font)              <9> on input line 644.
 LaTeX Font Info:    External font `lmex10' loaded for size
-(Font)              <5> on input line 675.
-
-Overfull \hbox (78.57265pt too wide) in paragraph at lines 675--713
- [][] 
- []
-
+(Font)              <5> on input line 644.
 
 pdfTeX warning (ext4): destination with the same identifier (name{page.}) has b
 een already used, duplicate ignored
 <to be read again> 
                    \relax 
-l.723 \[\delta_k = \frac{\phi_{2k}}{\phi_{1}}\]
-                                                [11]
-pdfTeX warning (ext4): destination with the same identifier (name{page.}) has b
-een already used, duplicate ignored
-<to be read again> 
-                   \relax 
-l.723 \[\delta_k = \frac{\phi_{2k}}{\phi_{1}}\]
-                                                [12{C:/Program Files/MiKTeX/fon
-ts/enc/dvips/lm/lm-mathsy.enc}]
-pdfTeX warning (ext4): destination with the same identifier (name{page.}) has b
-een already used, duplicate ignored
-<to be read again> 
-                   \relax 
-l.818 \end{verbatim}
-                     [13]
-Underfull \vbox (badness 10000) detected at line 839
- []
+l.685 \end{landscape}
+                      [12
 
+{C:/Program Files/MiKTeX/fonts/enc/dvips/lm/lm-mathsy.enc}]
+pdfTeX warning (ext4): destination with the same identifier (name{page.}) has b
+een already used, duplicate ignored
+<to be read again> 
+                   \relax 
+l.790 \end{verbatim}
+                     [13
 
+]
 pdfTeX warning (ext4): destination with the same identifier (name{page.}) has b
 een already used, duplicate ignored
 <to be read again> 
                    \relax 
-l.839 \end{Shaded}
-                   [14]
+l.790 \end{verbatim}
+                     [14]
 pdfTeX warning (ext4): destination with the same identifier (name{page.}) has b
 een already used, duplicate ignored
 <to be read again> 
                    \relax 
-l.911 \end{verbatim}
+l.883 \end{verbatim}
                      [15]
 pdfTeX warning (ext4): destination with the same identifier (name{page.}) has b
 een already used, duplicate ignored
 <to be read again> 
                    \relax 
-l.936 \end{Shaded}
-                   [16]
+l.899 \end{verbatim}
+                     [16]
 pdfTeX warning (ext4): destination with the same identifier (name{page.}) has b
 een already used, duplicate ignored
 <to be read again> 
                    \relax 
-l.1126 \end{Shaded}
+l.1061 \end{Shaded}
                     [17]
+Underfull \vbox (badness 10000) detected at line 1061
+ []
+
+
+Underfull \vbox (badness 10000) detected at line 1061
+ []
+
+
 pdfTeX warning (ext4): destination with the same identifier (name{page.}) has b
 een already used, duplicate ignored
 <to be read again> 
                    \relax 
-l.1126 \end{Shaded}
+l.1061 \end{Shaded}
                     [18]
-Underfull \vbox (badness 10000) detected at line 1126
- []
-
-
-Underfull \vbox (badness 10000) detected at line 1126
- []
-
-
-pdfTeX warning (ext4): destination with the same identifier (name{page.}) has b
-een already used, duplicate ignored
-<to be read again> 
-                   \relax 
-l.1126 \end{Shaded}
-                    [19]
-<asa_paper_final_files/figure-latex/unnamed-chunk-10-1.pdf, id=110, 469.755pt x
+<asa_paper_final_files/figure-latex/unnamed-chunk-10-1.pdf, id=106, 469.755pt x
  325.215pt>
 File: asa_paper_final_files/figure-latex/unnamed-chunk-10-1.pdf Graphic file (t
 ype pdf)
 <use asa_paper_final_files/figure-latex/unnamed-chunk-10-1.pdf>
 Package pdftex.def Info: asa_paper_final_files/figure-latex/unnamed-chunk-10-1.
-pdf  used on input line 1128.
+pdf  used on input line 1063.
 (pdftex.def)             Requested size: 469.75386pt x 325.2142pt.
 
 pdfTeX warning (ext4): destination with the same identifier (name{page.}) has b
 een already used, duplicate ignored
 <to be read again> 
                    \relax 
-l.1131 \section{Appendix}\label{appendix}}
-                                           [20]
-Overfull \vbox (2.35524pt too high) detected at line 1179
+l.1066 \section{Appendix}\label{appendix}}
+                                           [19]
+Overfull \vbox (2.35524pt too high) detected at line 1114
  []
 
 
@@ -913,10 +900,10 @@ pdfTeX warning (ext4): destination with the same identifier (name{page.}) has b
 een already used, duplicate ignored
 <to be read again> 
                    \relax 
-l.1179 \end{Shaded}
-                    [21 <./asa_paper_final_files/figure-latex/unnamed-chunk-10-
+l.1114 \end{Shaded}
+                    [20 <./asa_paper_final_files/figure-latex/unnamed-chunk-10-
 1.pdf>]
-Underfull \vbox (badness 10000) detected at line 1215
+Underfull \vbox (badness 10000) detected at line 1150
  []
 
 
@@ -924,9 +911,9 @@ pdfTeX warning (ext4): destination with the same identifier (name{page.}) has b
 een already used, duplicate ignored
 <to be read again> 
                    \relax 
-l.1215 \end{Shaded}
-                    [22]
-Overfull \hbox (78.57265pt too wide) in paragraph at lines 1221--1259
+l.1150 \end{Shaded}
+                    [21]
+Overfull \hbox (78.57265pt too wide) in paragraph at lines 1156--1194
  [][] 
  []
 
@@ -935,9 +922,9 @@ pdfTeX warning (ext4): destination with the same identifier (name{page.}) has b
 een already used, duplicate ignored
 <to be read again> 
                    \relax 
-l.1287 \end{Shaded}
-                    [23]
-Overfull \hbox (105.11833pt too wide) in paragraph at lines 1360--1360
+l.1222 \end{Shaded}
+                    [22]
+Overfull \hbox (105.11833pt too wide) in paragraph at lines 1295--1295
 []\T1/lmtt/m/n/10.95 ##     . - conf_minus_stayed_ts_log + cap_ratio, data = mo
 nsanc.short[monsanc.short$regional_jail ==[] 
  []
@@ -947,15 +934,15 @@ pdfTeX warning (ext4): destination with the same identifier (name{page.}) has b
 een already used, duplicate ignored
 <to be read again> 
                    \relax 
-l.1360 \end{verbatim}
+l.1295 \end{verbatim}
+                      [23]
+pdfTeX warning (ext4): destination with the same identifier (name{page.}) has b
+een already used, duplicate ignored
+<to be read again> 
+                   \relax 
+l.1389 \end{verbatim}
                       [24]
-pdfTeX warning (ext4): destination with the same identifier (name{page.}) has b
-een already used, duplicate ignored
-<to be read again> 
-                   \relax 
-l.1454 \end{verbatim}
-                      [25]
-Overfull \hbox (105.11833pt too wide) in paragraph at lines 1454--1454
+Overfull \hbox (105.11833pt too wide) in paragraph at lines 1389--1389
 []\T1/lmtt/m/n/10.95 ##     . - conf_minus_stayed_ts_log + cap_ratio, data = mo
 nsanc.short[monsanc.short$regional_jail ==[] 
  []
@@ -965,9 +952,9 @@ pdfTeX warning (ext4): destination with the same identifier (name{page.}) has b
 een already used, duplicate ignored
 <to be read again> 
                    \relax 
-l.1454 \end{verbatim}
-                      [26]
-Underfull \vbox (badness 10000) detected at line 1492
+l.1389 \end{verbatim}
+                      [25]
+Underfull \vbox (badness 10000) detected at line 1427
  []
 
 
@@ -975,23 +962,23 @@ pdfTeX warning (ext4): destination with the same identifier (name{page.}) has b
 een already used, duplicate ignored
 <to be read again> 
                    \relax 
-l.1492 \end{Shaded}
-                    [27]
+l.1427 \end{Shaded}
+                    [26]
 pdfTeX warning (ext4): destination with the same identifier (name{page.}) has b
 een already used, duplicate ignored
 <to be read again> 
                    \relax 
-l.1539 \end{document}
-                      [28] (asa_paper_final.aux)
+l.1474 \end{document}
+                      [27] (asa_paper_final.aux)
 
 LaTeX Warning: There were multiply-defined labels.
 
  ) 
 Here is how much of TeX's memory you used:
- 15776 strings out of 476315
- 252886 string characters out of 5796999
+ 15778 strings out of 476315
+ 252906 string characters out of 5796999
  1891068 words of memory out of 5000000
- 35836 multiletter control sequences out of 15000+600000
+ 35838 multiletter control sequences out of 15000+600000
  569967 words of font info for 109 fonts, out of 8000000 for 9000
  1141 hyphenation exceptions out of 8191
  77i,17n,81p,1014b,954s stack positions out of 10000i,1000n,20000p,200000b,200000s
@@ -1009,9 +996,9 @@ C:/Program Files/MiKTeX/fonts/type1/public/lm/lmr9.pfb><C:/Program Files/MiKTeX
  Files/MiKTeX/fonts/type1/public/lm/lmtk10.pfb><C:/Program Files/MiKTeX/fonts/t
 ype1/public/lm/lmtt10.pfb><C:/Program Files/MiKTeX/fonts/type1/public/lm/lmtti1
 0.pfb>
-Output written on asa_paper_final.pdf (28 pages, 421068 bytes).
+Output written on asa_paper_final.pdf (27 pages, 419258 bytes).
 PDF statistics:
- 286 PDF objects out of 1000 (max. 8388607)
+ 283 PDF objects out of 1000 (max. 8388607)
  31 named destinations out of 1000 (max. 500000)
  30827 words of extra memory for PDF output out of 35830 (max. 10000000)
 

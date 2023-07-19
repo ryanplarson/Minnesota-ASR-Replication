@@ -11,6 +11,9 @@ editor_options:
 header-includes: 
   - \usepackage{dcolumn}
   - \pagenumbering{gobble}
+  - \usepackage{lscape}
+  - \newcommand{\blandscape}{\begin{landscape}}
+  - \newcommand{\elandscape}{\end{landscape}}
 ---
 
 # Package Preamble
@@ -341,8 +344,10 @@ lfo_model <- lm(log(total_ff+1)~
          data = monsanc.short)
 ```
 
+\blandscape
 
-```{r, results='asis'}
+
+```{r, results='asis', echo=FALSE}
 #stargazer regression table
 
 stargazer(conf_model, lfo_model, prob_model,
@@ -373,8 +378,11 @@ stargazer(conf_model, lfo_model, prob_model,
           star.cutoffs = c(.05, .01, .001), 
           star.char = c("*","**","***"),
           add.lines = list(c("District FE", "Yes", "Yes", "Yes"),
-                           c("Sentence Year FE", "Yes", "Yes", "Yes")))
+                           c("Sentence Year FE", "Yes", "Yes", "Yes")),
+          notes = "All tests are two-tailed.")
 ```
+
+\elandscape
 
 ## Table 3: Instrumental Variable Models of Punishment
 
@@ -434,7 +442,7 @@ ppcor::pcor.test(y = monsanc.short$cap_ratio_lead[!is.na(monsanc.short$cap_ratio
                  method = "pearson")
 ```
 
-```{r, results='asis'}
+```{r, results='asis', echo=FALSE}
 stargazer(iv.ff, iv.prob,
           type = "latex", 
           title = "IV 2SLS Models of Punishment, Minnesota 2004-2017",
@@ -466,7 +474,7 @@ stargazer(iv.ff, iv.prob,
                            c("Sentence Year FE", "Yes", "Yes", "Yes"),
                            c("IV F(Incar.)", "10.58^{**}", "10.58^{**}"),
                            c("IV Wu-Hausman", "136.08^{***}", "57.62^{***}")),
-          notes = "IV: County-Level Jail Capacity Ratio")
+          notes = "All tests are two-tailed. IV: County-Level Jail Capacity Ratio")
 ```
 
 ## Figure 2: Coefficient Plot
