@@ -1,0 +1,1426 @@
+---
+title: "Minnesota Monetary Sanctions"
+author: "Ryan Larson - UMN"
+date: "`r format(Sys.time(), '%m/%d/%Y')`"
+output: pdf_document
+fontsize: 11pt
+editor_options: 
+  chunk_output_type: console
+---
+
+#Data Cleaning, Manipulation, and Merge
+
+```{r, warning=F, echo=T}
+##########################################
+# Multi-State Study of Monetary Sanctions
+# Ryan Larson, RA, UMN
+##########################################
+
+#make priors offense level specific (misdemeanor, GM, M, PM)
+
+#packages
+library(dplyr)
+library(readr)
+library(tidyr)
+library(stringr)
+library(purrr)
+
+#Note: removing error case at end of datasets = %>% slice(-dim(.)[1])
+
+#case - treating as base unit of analysis
+case <- read_delim("C:/Users/rlarson21/Documents/Research/Monetary Sanctions/MonSanc/Original Data/Case.txt", delim = "|", na = "NULL",
+                   col_types = list(col_character(), col_double(), 
+                                 col_datetime(), col_datetime(), 
+                                 col_character(), col_datetime(), 
+                                 col_character(), col_character(),
+                                 col_character(), col_character(),
+                                 col_character(), col_character(),
+                                 col_character())) %>% 
+  slice(-dim(.)[1]) 
+
+
+
+#checking for duplicates
+length(unique(case$Case_Mkey))==dim(case)[1] #no duplicate Case_Mkeys
+
+str(case)
+
+#filed date
+table(case$Case_Filed_Date, useNA = "always") #no missing
+
+#final disposition date
+table(case$Case_First_Final_Disposition_Date, useNA = "always")
+  #311,129 missing disposition dates
+  #status of missing cases
+  table(case$Current_Case_Status_Desc[is.na(case$Case_First_Final_Disposition_Date)])
+  #most are dormant or still open
+
+#current case status
+table(case$Current_Case_Status_Desc,  useNA = "always")
+
+#current case status date
+table(case$Current_Case_Status_Date, useNA = "always")
+
+#Weighted Case Load Case type  - used in calculating judge caseload
+table(case$Case_WCL_Type_Desc, useNA = "always")
+
+#Filed District
+table(case$Filed_District, useNA = "always")
+
+#Filed County
+table(case$Filed_County, useNA = "always") #sum of cases within county
+
+#Current District
+table(case$Current_District, useNA = "always")
+all.equal(case$Current_District,case$Filed_District) #redundant 
+
+#Current County
+table(case$Current_County, useNA = "always")
+all.equal(case$Current_County,case$Filed_County) #redundant 
+
+# Judge Full Name
+table(case$Judge_Full_Name, useNA = "always") #10701658 missing
+
+#VIBES Converted - whether case is VIBES or MNCIS financial
+table(case$VIBES_Converted, useNA = "always")
+
+#fill in vibes
+case <- case %>% mutate(VIBES_Converted = ifelse(is.na(VIBES_Converted), "No", "Yes"))
+
+
+#create filed-year variable, drop redundant vars
+#dropping open and reopened cases, as there is no sentence
+case <- case %>% 
+  mutate(file_year = format(Case_Filed_Date, "%Y")) %>%
+  select(-Current_District, -Current_County) %>%
+  filter(Current_Case_Status_Desc %in% c("Closed", 
+                                         "Closed-Physical File Destroyed", 
+                                         "Converted Closed",
+                                    "Under Court Jurisdiction", 
+                                    "Final Pay/Appear Notice Sent"))
+
+#VIBES cases just in Hennepin and Ramsey
+table(case$Filed_County, case$VIBES_Converted)
+```
+
+```{r, warning = F, echo=T}
+#MNCIS Financial - originally at transaction level
+mncis <- read_delim("C:/Users/rlarson21/Documents/Research/Monetary Sanctions/MonSanc/Original Data/MNCIS_Financial.txt", delim = "|", na = "NULL",
+                     col_types = list(col_double(), col_double(), 
+                                 col_double(), col_character(), 
+                                 col_character(), col_double(), 
+                                 col_datetime(), col_character(),
+                                 col_character(), col_double(),
+                                 col_double(), col_double(),
+                                 col_double(), col_double(),
+                                 col_double(), col_double())) %>%
+  slice(-dim(.)[1])
+
+str(mncis)
+
+#unique cases in mncis file
+length(unique(mncis$Case_Mkey))
+
+#comparing to case VIBES_converted tabulation
+table(case$VIBES_Converted)
+
+# number of cases that do not have data in mncis, that should based on case county
+dim(case[case$VIBES_Converted=="No",])[1]-length(unique(mncis$Case_Mkey))
+
+#Merging reduced category variable
+mncis.bridge <- read_csv(file = "C:/Users/rlarson21/Documents/Research/Monetary Sanctions/MonSanc/Misc Data/mncis_fees.csv")
+mncis$Fee_Type_Category_Desc <- str_trim(mncis$Fee_Type_Category_Desc, side = "both") #trimming wtspace
+mncis$Fee_Type_Desc <- str_trim(mncis$Fee_Type_Desc, side = "both") #trimming wtspace
+
+mncis <- mncis %>% left_join(mncis.bridge, 
+      by = c("Fee_Type_Desc"="fee_type_desc", "Fee_Type_Category_Desc"="fee_type_category_desc"))
+
+#overridden is ignorable - defines what amount of charge is overridden by credit
+#indirect has 0 across the dataset
+#other - mostly refunds, values in both charge and payment (largely ~99%) offset, dropped (20812)
+#UNK - dropped ()
+
+#mncis aggregated by type
+  #non-charges or payments (e.g., disbursements) implicitly filtered 
+mncis.agg <- mncis %>% 
+  select(Case_Mkey, new_cat, 
+         Financial_Transaction_Detail_Charge_Amount, 
+         Financial_Transaction_Detail_Payment_Amount,
+         Financial_Transaction_Detail_Credit_Amount) %>%
+  rename(mncis_charge_amount = Financial_Transaction_Detail_Charge_Amount,
+         mncis_paid_amount = Financial_Transaction_Detail_Payment_Amount,
+         mncis_credit_amount = Financial_Transaction_Detail_Credit_Amount,
+         type = new_cat) %>%
+  filter(type!="BAIL"&type!="UNK"&type!="OTHER") %>%
+  group_by(Case_Mkey, type) %>%
+  summarize(mncis_ordered = sum(mncis_charge_amount), 
+            mncis_collected = sum(mncis_paid_amount),
+            mncis_credit = sum(mncis_credit_amount)) %>%
+  mutate(mncis_ordered_adj =  mncis_ordered-mncis_credit,
+         mncis_ordered_adj = ifelse(mncis_ordered_adj < 0, 0, mncis_ordered_adj), 
+         mncis_collected = ifelse(mncis_collected < 0, 0, mncis_collected),
+         mncis_outstanding  = round(mncis_ordered_adj - mncis_collected, 2)) %>%
+  mutate(mncis_outstanding = ifelse(mncis_outstanding < 0, 0, mncis_outstanding)) %>% 
+  gather(variable, value, -c(Case_Mkey, type)) %>%
+  unite(type_var, type, variable) %>%
+  spread(type_var, value) %>%
+  mutate(source_mncis = rep("mncis", length(Case_Mkey)))
+
+mncis.agg %>% anti_join(case, by = "Case_Mkey") #rows in mncis with no case match,  cases dropped
+case %>% anti_join(mncis.agg, by = "Case_Mkey") #rows in case with no mncis match, mostly vibes cases (1143403 are not and are missing in mncis)
+
+#merge to case
+monsanc <- case %>% left_join(mncis.agg, by = "Case_Mkey")
+
+rm(case, mncis.agg, mncis, mncis.bridge)
+
+#write_csv(monsanc, "C:/Users/rlarson21/Documents/Research/Monetary Sanctions/MonSanc/Data #Build/monsanc_mncis.csv")
+```
+
+
+```{r, message=F, warning=FALSE}
+#VIBES financial 
+vibes <- read_delim("C:/Users/rlarson21/Documents/Research/Monetary Sanctions/MonSanc/Original Data/VIBES_Financial.txt", delim = "|", na = "NULL") %>% 
+  slice(-dim(.)[1]) 
+
+#incident ID does not uniquely identify to case, incident_id+county does
+vibes <- vibes %>% mutate(county = ifelse(CNTY_CODE==62, "Ramsey County", "Hennepin County")) 
+
+#fee categorization in VIBES 
+table(vibes$FEE_CATEGORY, useNA = "always")
+
+#merging vibes type bridge
+vibes.type <- read_csv(file = "C:/Users/rlarson21/Documents/Research/Monetary Sanctions/MonSanc/Misc Data/vibes_fee_category.csv") %>%
+  mutate(FEE = ifelse(is.na(FEE), "FINE", FEE))
+
+vibes$FEE_CATEGORY <- str_trim(vibes$FEE_CATEGORY, side = "both") #trimming whitespace for merge
+vibes <- vibes %>% left_join(vibes.type, by = c("FEE_CATEGORY" = "ACS")) %>%
+  rename(type = FEE)
+
+#reshape to case-level
+vibes.agg <- vibes %>% 
+  select(Incident_ID, county,type, 
+         Total_Assessments, 
+         Total_Payments) %>%
+  group_by(Incident_ID, county, type) %>%
+  summarize(vibes_ordered = sum(Total_Assessments), 
+            vibes_collected = sum(Total_Payments)) %>% 
+  mutate(vibes_ordered = ifelse(vibes_ordered < 0, 0, vibes_ordered),
+         vibes_collected = ifelse(vibes_collected < 0, 0, vibes_collected), 
+         vibes_outstanding = ifelse(vibes_ordered-vibes_collected < 0, 
+                                    0, 
+                                    vibes_ordered-vibes_collected)) %>%
+  gather(variable, value, -c(Incident_ID, county, type)) %>%
+  unite(type_var, type, variable) %>%
+  spread(type_var, value) %>%
+  mutate(source_vibes = rep("vibes", length(Incident_ID)))
+
+
+#merge vibes bridge
+vibes.bridge <- read_delim("C:/Users/rlarson21/Documents/Research/Monetary Sanctions/MonSanc/Original Data/VIBES_Bridge.txt", delim = "|", na = "NULL") %>%
+  slice(-dim(.)[1]) 
+
+vibes.agg <- vibes.agg %>% 
+  mutate(Incident_ID = as.numeric(Incident_ID)) %>%
+  left_join(vibes.bridge, by = c("Incident_ID" = "INCIDENT_ID")) %>%
+  mutate(Case_Mkey = as.numeric(Case_Mkey))
+
+vibes.bridge %>% anti_join(vibes.agg, by = c("INCIDENT_ID"="Incident_ID")) #rows in bridge with no vibes incident match (54678) - aka have bridge, not vibes case
+
+vibes.agg %>% anti_join(vibes.bridge, by = c("Incident_ID"="INCIDENT_ID")) #rows in vibes with no bridge key
+table(is.na(vibes.agg$Case_Mkey)) #609,614 missing Case_Mkey's - aka have vibes, no bridge match
+
+vibes.agg %>% anti_join(monsanc, by = c("county"="Filed_County", "Case_Mkey")) #rows in vibes with no case match (894316)  - aka have vibes case, no match to case
+
+#leaves 284692 vibes cases that HAVE Case_Mkey bridge but do not merge to case
+
+
+#merging to case
+monsanc <- monsanc %>% left_join(vibes.agg, by = c("Filed_County"="county", "Case_Mkey"))
+
+rm(vibes, vibes.agg, vibes.bridge, vibes.type)
+
+monsanc <- read_csv("C:/Users/rlarson21/Documents/Research/Monetary Sanctions/MonSanc/Data Build/monsanc_lfo.csv")
+```
+
+```{r, warning=T, echo=T}
+#creating combined financial variables
+monsanc$fin_source <- rep(NA, length(monsanc$Case_Mkey))
+monsanc$fin_source[monsanc$source_mncis=="mncis"] <- "mncis"
+monsanc$fin_source[monsanc$source_vibes=="vibes"] <- "vibes"
+
+#financial source distribution
+table(monsanc$fin_source, useNA = "always") #1,204,133 cases without financial info from mncis or vibes
+
+#combining fin sources into one variable
+#assuming 0's if no NAs present in either of the other LFO types
+#summing across types for totals, respecting NAs across all 3 types
+monsanc <- monsanc %>% 
+  mutate(fine_ordered = ifelse(fin_source=="mncis", 
+                                                    FINE_mncis_ordered_adj, 
+                                                    FINE_vibes_ordered),
+                              fine_outstanding = ifelse(fin_source=="mncis", 
+                                                    FINE_mncis_outstanding, 
+                                                    FINE_vibes_outstanding),
+                              fine_collected = ifelse(fin_source=="mncis", 
+                                                    FINE_mncis_collected, 
+                                                    FINE_vibes_collected),
+                              fee_ordered = ifelse(fin_source=="mncis", 
+                                                    FEE_mncis_ordered_adj, 
+                                                    FEE_vibes_ordered),
+                              fee_outstanding = ifelse(fin_source=="mncis", 
+                                                    FEE_mncis_outstanding, 
+                                                    FEE_vibes_outstanding),
+                              fee_collected = ifelse(fin_source=="mncis", 
+                                                    FEE_mncis_collected, 
+                                                    FEE_vibes_collected),
+                              rest_ordered = ifelse(fin_source=="mncis", 
+                                                    REST_mncis_ordered_adj, 
+                                                    REST_vibes_ordered),
+                              rest_outstanding = ifelse(fin_source=="mncis", 
+                                                    REST_mncis_outstanding, 
+                                                    REST_vibes_outstanding),
+                              rest_collected = ifelse(fin_source=="mncis", 
+                                                    REST_mncis_collected, 
+                                                    REST_vibes_collected)) %>%
+      mutate(rest_ordered = ifelse((!is.na(fee_ordered) | !is.na(fine_ordered)) & is.na(rest_ordered),
+                                   0, rest_ordered),
+             rest_collected = ifelse((!is.na(fee_collected) | !is.na(fine_collected)) & 
+                                       is.na(rest_collected),
+                                   0, rest_collected),
+             rest_outstanding = ifelse((!is.na(fee_outstanding) | !is.na(fine_outstanding)) &
+                                     is.na(rest_outstanding),
+                                   0, rest_outstanding),
+             fine_ordered = ifelse((!is.na(fee_ordered) | !is.na(rest_ordered)) & is.na(fine_ordered),
+                                   0, fine_ordered),
+              fine_collected = ifelse((!is.na(fee_collected) | !is.na(rest_collected)) &
+                                        is.na(fine_collected),
+                                   0, fine_collected),
+              fine_outstanding = ifelse((!is.na(fee_outstanding) | !is.na(rest_outstanding)) &
+                                          is.na(fine_outstanding),
+                                   0, fine_outstanding),
+              fee_ordered = ifelse((!is.na(fine_ordered) | !is.na(rest_ordered)) & is.na(fee_ordered),
+                                   0, fee_ordered),
+              fee_collected = ifelse((!is.na(fine_collected) | !is.na(rest_collected)) &
+                                       is.na(fee_collected),
+                                   0, fee_collected),
+              fee_outstanding = ifelse((!is.na(fine_outstanding) | !is.na(rest_outstanding)) &
+                                         is.na(fee_outstanding),
+                                   0, fee_outstanding)) %>%
+      mutate(total_order = ifelse(is.na(fine_ordered) & is.na(fee_ordered) & is.na(rest_ordered),
+                                  NA,
+                                  rowSums(.[,c("fine_ordered","fee_ordered","rest_ordered")],na.rm=T)),
+             total_ff = ifelse(is.na(fine_ordered) & is.na(fee_ordered),
+                                  NA,
+                                  rowSums(.[,c("fine_ordered","fee_ordered")],na.rm=T)),
+             total_collected = ifelse(is.na(fine_collected) & is.na(fee_collected)
+                                    & is.na(rest_collected),
+                                  NA,
+                        rowSums(.[,c("fine_collected","fee_collected","rest_collected")],na.rm=T)),
+             total_outstanding = ifelse(is.na(fine_outstanding) & is.na(fee_outstanding)
+                                    & is.na(rest_outstanding),
+                                  NA,
+                        rowSums(.[,c("fine_outstanding","fee_outstanding","rest_outstanding")],na.rm=T)),
+             total_ff_outstanding = ifelse(is.na(fine_outstanding) & is.na(fee_outstanding), 
+                                           NA,
+                                           rowSums(.[,c("fine_outstanding", "fee_outstanding")])),
+             total_ff_collected = ifelse(is.na(fine_collected) & is.na(fee_collected),
+                                         NA,
+                                         rowSums(.[,c("fine_collected","fee_collected")]))) %>%
+  select(-contains("vibes"), -contains("mncis"))
+```
+
+```{r, warning=F, echo=T}
+
+#attorney
+attorney <- read_delim("C:/Users/rlarson21/Documents/Research/Monetary Sanctions/MonSanc/Original Data/Attorney.txt", delim = "|", na = "NULL") %>% slice(-dim(.)[1]) 
+str(attorney)
+
+#creating pubdef and prosecutor indicators
+att <- attorney %>% select(Case_Mkey, Attorney_Number, 
+                           Case_Party_Involvement_Desc, Case_Party_Attorney_Type_Desc) %>%
+  mutate(att_role = case_when(
+    (Case_Party_Involvement_Desc=="Defendant"|Case_Party_Attorney_Type_Desc=="Public Defender") &
+     Case_Party_Attorney_Type_Desc!="Retained" & Case_Party_Attorney_Type_Desc!="Pro Se"~ "def-public",
+    (Case_Party_Involvement_Desc=="Defendant"|Case_Party_Attorney_Type_Desc=="Public Defender") &
+      Case_Party_Attorney_Type_Desc=="Retained" ~ "def-private",
+  Case_Party_Involvement_Desc=="Jurisdiction" & Case_Party_Attorney_Type_Desc=="Retained" ~ "prosecution",
+  Case_Party_Involvement_Desc=="Jurisdiction" & Case_Party_Attorney_Type_Desc=="Court Appointed" ~ "prosecution",
+  Case_Party_Attorney_Type_Desc=="Pro Se"  ~ "pro-se"))
+
+att.wide <- att %>% filter(att_role!="prosecution") %>% group_by(Case_Mkey) %>% 
+  mutate(count=row_number()) %>% 
+  gather(key = "variable", value="value", -Case_Mkey, -count) %>%
+  unite(variable_number,variable, count) %>%
+  spread(key = variable_number, value = value, fill = NA) %>% ungroup()
+
+length(unique(att.wide$Case_Mkey))==dim(att.wide)[1] #case check
+
+#create indicator of whether public defender present at any point in case
+att.merge <- att.wide %>%
+  select(Case_Mkey, starts_with("att_role"))%>%
+  mutate(pubdef = case_when(
+                  att_role_1=="def-public"~"yes",
+                  att_role_2=="def-public"~"yes",
+                  att_role_3=="def-public"~"yes",
+                  att_role_4=="def-public"~"yes",
+                  att_role_5=="def-public"~"yes",
+                  att_role_6=="def-public"~"yes",
+                  att_role_7=="def-public"~"yes",
+                  att_role_8=="def-public"~"yes",
+                  att_role_9=="def-public"~"yes",
+                  att_role_10=="def-public"~"yes",
+                  att_role_11=="def-public"~"yes",
+                  att_role_12=="def-public"~"yes",
+                  att_role_13=="def-public"~"yes",
+                  att_role_14=="def-public"~"yes",
+                  att_role_15=="def-public"~"yes",
+                  att_role_16=="def-public"~"yes",
+                  att_role_17=="def-public"~"yes",
+                  att_role_18=="def-public"~"yes",
+                  att_role_19=="def-public"~"yes",
+                  att_role_20=="def-public"~"yes",
+                  att_role_21=="def-public"~"yes",
+                  TRUE~"no")) %>%
+  select(Case_Mkey, pubdef) %>%
+  mutate(Case_Mkey=as.numeric(Case_Mkey))
+
+#merge to monsanc
+monsanc<- monsanc %>% left_join(att.merge, by = "Case_Mkey") %>% 
+  mutate(attorney = case_when(
+    is.na(pubdef) ~ "none",
+    pubdef=="no" ~ "private_prose",
+    pubdef=="yes" ~ "public"
+  ))
+
+rm(attorney, att, att.merge, att.wide, jan18adj, adj, year)
+```
+
+
+```{r, warning=F, echo=T}
+charge <- read_delim("C:/Users/rlarson21/Documents/Research/Monetary Sanctions/MonSanc/Original Data/Charge.txt", delim = "|", na = "NULL",
+                     col_types = list(col_double(), col_double(), 
+                                 col_double(), col_character(), 
+                                 col_datetime(), col_character(), 
+                                 col_character(), col_character(),
+                                 col_character(), col_character(),
+                                 col_character(), col_character(),
+                                 col_character(), col_character(),
+                                 col_character(), col_character(),
+                                 col_character(), col_character(),
+                                 col_character(), col_character())) %>% slice(-dim(.)[1]) 
+str(charge)
+
+table(charge$Charge_Case_Type_Desc) #grouped case type - not detailed enough
+table(charge$Degree_Type_Desc) #charge level
+table(charge$Offense_Desc) #detailed descriptor
+
+#recode of offense type variable: drug, violent, alcohol, nat.resources
+  #string approximations from manual overview of 9,330 Offense_Desc categories
+  #violence mainly follows minnesota statute 624.712
+
+#in case_when function below, I have alcohol ahead of violence to prioritize alcohol related     vehicle offenses as alcohol as opposed to violent - not sure if we want to change this or not
+  #dangerous weapons/gun violations? - "drive by shooting" included for now
+
+#property category - in future?
+
+alcohol <- c("alcohol", "alcoholic", "drinking", "consume in public", "liquor", "beer","wine",
+             "alchol", "und inf alc", "und infl combination alc/cntrl subst", 
+             "und infl alc/ctrl subst",
+             "und infl alc./cont. subst.", "und infl alcho/controlled subst",
+             "under influence combination alc/contrl subst","intoxication", "drunkenness",
+             "dwi", "dui",
+             "ignition interlock", "minor consumption", 
+             "minor purchasing or selling to minor",
+             "motorboat-dui", "open bottle", "open container", "public consumption",
+             "underage consumption")
+
+
+drug <- c("drugs", "drug", "marijuana", "hypodermic", "controlled substance", 
+          "injection equipment", 
+          "possession of glue or spray paint for the purpose of inhaling", 
+          "possession of inhalants", "paraphernalia", "inhalants")
+
+violent <- c("abduction", "arson", "assault", "burglary", "carnal kowledge", "crim abuse", 
+            "crime committed for benefit of a gang-crime", "criminal abuse", 
+            "criminal sex cond", 
+            "criminal sex conduct", "criminal sexual conduct", "homicide", "crimsex-sexual",
+            "sexual intercourse with a child - female under 18 years old, not a spouse",
+            "drive by shooting", "sexual conduct to a child", "sexual conduct with child", 
+            "domestic abuse", "domestic assault", "kidnapping", "sex trafficking", 
+            "false imprisonment",
+            "harassment", "harassing", "kill", "manslaughter", "murder",
+            "malicious punishment of a child", "neglect child", "neglect of a child",
+            "prostitution", "riot", "stalking", "terroristic threats", 
+            "use minors in sexual performance/pornographic work", 
+            "use minor sexual performance/porn work-own/operate business", 
+            "use of deadly force against peace officer or correctional employee", "robbery",
+            "commit crime-while wear/possess bullet resist vest", "machine gun",
+            "transit crime-shoot at public vehicle/facility",
+            "kill")
+
+huntfish <- c("big game", "fishing", "hunting", "minnows", "angling", "dnr", 
+              "experimental waters",
+              "failure to register animal", "deer", "fish", "fish and game", 
+              "migratory birds","walleye",
+              "minnow", "mn-can waters","mn-nd waters","mn-wi waters", 
+              "natural preservation","hunt",
+              "public water access - store or abandon fish house, structure or property",
+              "registration of regulated animals", "small game", "turtles", 
+              "wildlife management areas",
+              "trapping")
+
+dui <- c("und inf alc", "und infl combination alc/cntrl subst", 
+             "und infl alc/ctrl subst",
+             "und infl alc./cont. subst.", "und infl alcho/controlled subst",
+             "under influence combination alc/contrl subst",
+             "dwi", "dui",
+             "ignition interlock", 
+             "motorboat-dui", "open container", "open bottle")
+
+
+
+charge <- charge %>% 
+  filter(Charge_History_Current_Record_Flag=="Yes")  %>%
+  select(Case_Mkey, Charge_Mkey, Degree_Type_Desc, Offense_Desc) %>%  
+  mutate(Offense_Desc = str_to_lower(Offense_Desc)) %>%
+  mutate(charge_degree = case_when(
+    Degree_Type_Desc=="Converted: Offense Level Not Available"~"converted",
+    Degree_Type_Desc=="Felony"~"felony",
+    Degree_Type_Desc=="Gross Misdemeanor"~"gross misdemeanor",
+    Degree_Type_Desc=="misdemeanor"~"misdemeanor",
+    Degree_Type_Desc=="Juvenile Petty Offense"~"other",
+    Degree_Type_Desc=="Misdemeanor"~"misdemeanor",
+    Degree_Type_Desc=="Petty Misdemeanor"~"petty misdemeanor",
+    Degree_Type_Desc=="No Level"~"other",
+    Degree_Type_Desc==""~"other"),
+    charge_offense = case_when(
+      str_detect(Offense_Desc, pattern = paste(alcohol, collapse = "|"))~"alcohol/dui",
+      str_detect(Offense_Desc, pattern = paste(drug, collapse = "|"))~"drug",
+      str_detect(Offense_Desc, pattern = paste(violent, collapse = "|"))~"violent",
+      str_detect(Offense_Desc, pattern = paste(huntfish, collapse = "|"))~"hunt/fish",                         TRUE~"other"),
+    dui_tag = case_when(
+      str_detect(Offense_Desc, pattern = paste(dui, collapse = "|"))~"yes",
+      TRUE~"no"))
+
+rm(alcohol, drug, violent, huntfish, dui)
+
+
+
+#charge disposition
+charge.disp <- read_delim("C:/Users/rlarson21/Documents/Research/Monetary Sanctions/MonSanc/Original Data/Charge_Disposition.txt", delim = "|", na = "NULL") %>% 
+  slice(-dim(.)[1]) %>%
+  filter(Charge_Disposition_Current_Flag=="Yes") %>% 
+  select(Charge_Mkey, Criminal_Disposition_Type_Desc) %>%
+  mutate(Charge_Mkey=as.numeric(Charge_Mkey))
+
+charge <- charge %>% left_join(charge.disp, by = "Charge_Mkey") 
+
+#filter charges that dismissed, acquitted, etc.
+table(charge$Criminal_Disposition_Type_Desc)
+
+drops <- c("Acquitted", "Acquitted, Insanity", "Acquitted, mental deficiency", 
+                    "Acquitted, mental illness", "Acquitted, mental incompetency", "Dismissed", 
+                    "Dismissed, Insanity", "Dismissed, mental deficiency", "Dismissed, mental illness", 
+                    "Dismissed, mentally incompetent", "Disposition Unavailable", 
+                    "Judgment set aside (Reversed)", "Not Guilty", "Not proven", "Pending due Insanity", 
+                    "Pndg due Mntl Incmp", "Vacated", "Withdrawn", "No info filed", "Mistrial", "Hung Jury",                      "Found Mtl Incompnt")
+
+charge <- charge %>% 
+  filter(!(Criminal_Disposition_Type_Desc %in% drops))
+
+rm(charge.disp, drops)
+
+write_csv(charge, "C:/Users/rlarson21/Documents/Research/Monetary Sanctions/MonSanc/Data Build/charge_long.csv")
+
+#aggregate to case-level - only first 25 charges per case
+charge.case <- charge %>% 
+  filter(!is.na(Case_Mkey)) %>%
+  group_by(Case_Mkey) %>% 
+  mutate(count = row_number()) %>% 
+  filter(count <= 25) %>%
+  gather(key = "variable", value="value", -Case_Mkey, -count) %>%
+  unite(variable_number,variable, count) %>%
+  spread(key = variable_number, value = value, fill = "none")
+
+# case-level reduction
+charge.case <- charge.case %>%
+  ungroup() %>%
+  mutate(dui_tag = case_when(
+    dui_tag_1=="yes"| dui_tag_2=="yes"|dui_tag_3=="yes"| dui_tag_4=="yes"|
+                               dui_tag_5=="yes"| dui_tag_6=="yes"| 
+                               dui_tag_7=="yes"| dui_tag_8=="yes"| 
+                               dui_tag_9=="yes"| dui_tag_10=="yes"|
+                               dui_tag_11=="yes"| dui_tag_12=="yes"| 
+                               dui_tag_13=="yes"| dui_tag_14=="yes"|
+                               dui_tag_15=="yes"| dui_tag_16=="yes"|
+                               dui_tag_17=="yes"| dui_tag_18=="yes"|
+                               dui_tag_19=="yes"| dui_tag_20=="yes"| 
+                               dui_tag_21=="yes"| dui_tag_22=="yes"|
+                               dui_tag_23=="yes"| dui_tag_24=="yes"| 
+                               dui_tag_25=="yes" ~ "yes",
+                               TRUE ~ "no"),
+    felony_flag = ifelse(charge_degree_1=="felony"| charge_degree_2=="felony"|
+                                     charge_degree_3=="felony"| charge_degree_4=="felony"|
+                                   charge_degree_5=="felony"| charge_degree_6=="felony"|
+                                     charge_degree_7=="felony"| charge_degree_8=="felony"| 
+                                   charge_degree_9=="felony"| charge_degree_10=="felony"|
+                                     charge_degree_11=="felony"| charge_degree_12=="felony"| 
+                                   charge_degree_13=="felony"| charge_degree_14=="felony"|
+                                     charge_degree_15=="felony"| charge_degree_16=="felony"|
+                                   charge_degree_17=="felony"| charge_degree_18=="felony"|
+                                     charge_degree_19=="felony"| charge_degree_20=="felony"| 
+                                   charge_degree_21=="felony"| charge_degree_22=="felony"|
+                                     charge_degree_23=="felony"| charge_degree_24=="felony"| 
+                                   charge_degree_25=="felony", T, F),
+   gm_flag = ifelse(charge_degree_1=="gross misdemeanor"| charge_degree_2=="gross misdemeanor"|
+                                     charge_degree_3=="gross misdemeanor"| charge_degree_4=="gross misdemeanor"|
+                                   charge_degree_5=="gross misdemeanor"| charge_degree_6=="gross misdemeanor"|
+                                     charge_degree_7=="gross misdemeanor"| charge_degree_8=="gross misdemeanor"| 
+                                   charge_degree_9=="gross misdemeanor"| charge_degree_10=="gross misdemeanor"|
+                                     charge_degree_11=="gross misdemeanor"| charge_degree_12=="gross misdemeanor"| 
+                                   charge_degree_13=="gross misdemeanor"| charge_degree_14=="gross misdemeanor"|
+                                     charge_degree_15=="gross misdemeanor"| charge_degree_16=="gross misdemeanor"|
+                                   charge_degree_17=="gross misdemeanor"| charge_degree_18=="gross misdemeanor"|
+                                     charge_degree_19=="gross misdemeanor"| charge_degree_20=="gross misdemeanor"| 
+                                   charge_degree_21=="gross misdemeanor"| charge_degree_22=="gross misdemeanor"|
+                                     charge_degree_23=="gross misdemeanor"| charge_degree_24=="gross misdemeanor"| 
+                                   charge_degree_25=="gross misdemeanor", T,F),
+  misdem_flag = ifelse(charge_degree_1=="misdemeanor"| charge_degree_2=="misdemeanor"|
+                                     charge_degree_3=="misdemeanor"| charge_degree_4=="misdemeanor"|
+                                   charge_degree_5=="misdemeanor"| charge_degree_6=="misdemeanor"|
+                                     charge_degree_7=="misdemeanor"| charge_degree_8=="misdemeanor"| 
+                                   charge_degree_9=="misdemeanor"| charge_degree_10=="misdemeanor"|
+                                     charge_degree_11=="misdemeanor"| charge_degree_12=="misdemeanor"| 
+                                   charge_degree_13=="misdemeanor"| charge_degree_14=="misdemeanor"|
+                                     charge_degree_15=="misdemeanor"| charge_degree_16=="misdemeanor"|
+                                   charge_degree_17=="misdemeanor"| charge_degree_18=="misdemeanor"|
+                                     charge_degree_19=="misdemeanor"| charge_degree_20=="misdemeanor"| 
+                                   charge_degree_21=="misdemeanor"| charge_degree_22=="misdemeanor"|
+                                     charge_degree_23=="misdemeanor"| charge_degree_24=="misdemeanor"| 
+                                   charge_degree_25=="misdemeanor", T,F),
+  petty_flag = ifelse(charge_degree_1=="petty misdemeanor"| charge_degree_2=="petty misdemeanor"|
+                                     charge_degree_3=="petty misdemeanor"| charge_degree_4=="petty misdemeanor"|
+                                   charge_degree_5=="petty misdemeanor"| charge_degree_6=="petty misdemeanor"|
+                                     charge_degree_7=="petty misdemeanor"| charge_degree_8=="petty misdemeanor"| 
+                                   charge_degree_9=="petty misdemeanor"| charge_degree_10=="petty misdemeanor"|
+                                     charge_degree_11=="petty misdemeanor"| charge_degree_12=="petty misdemeanor"| 
+                                   charge_degree_13=="petty misdemeanor"| charge_degree_14=="petty misdemeanor"|
+                                     charge_degree_15=="petty misdemeanor"| charge_degree_16=="petty misdemeanor"|
+                                   charge_degree_17=="petty misdemeanor"| charge_degree_18=="petty misdemeanor"|
+                                     charge_degree_19=="petty misdemeanor"| charge_degree_20=="petty misdemeanor"| 
+                                   charge_degree_21=="petty misdemeanor"| charge_degree_22=="petty misdemeanor"|
+                                     charge_degree_23=="petty misdemeanor"| charge_degree_24=="petty misdemeanor"| 
+                                   charge_degree_25=="petty misdemeanor", T,F),
+  petty_flag = ifelse(charge_degree_1=="petty misdemeanor"| charge_degree_2=="petty misdemeanor"|
+                                     charge_degree_3=="petty misdemeanor"| charge_degree_4=="petty misdemeanor"|
+                                   charge_degree_5=="petty misdemeanor"| charge_degree_6=="petty misdemeanor"|
+                                     charge_degree_7=="petty misdemeanor"| charge_degree_8=="petty misdemeanor"| 
+                                   charge_degree_9=="petty misdemeanor"| charge_degree_10=="petty misdemeanor"|
+                                     charge_degree_11=="petty misdemeanor"| charge_degree_12=="petty misdemeanor"| 
+                                   charge_degree_13=="petty misdemeanor"| charge_degree_14=="petty misdemeanor"|
+                                     charge_degree_15=="petty misdemeanor"| charge_degree_16=="petty misdemeanor"|
+                                   charge_degree_17=="petty misdemeanor"| charge_degree_18=="petty misdemeanor"|
+                                     charge_degree_19=="petty misdemeanor"| charge_degree_20=="petty misdemeanor"| 
+                                   charge_degree_21=="petty misdemeanor"| charge_degree_22=="petty misdemeanor"|
+                                     charge_degree_23=="petty misdemeanor"| charge_degree_24=="petty misdemeanor"| 
+                                   charge_degree_25=="petty misdemeanor", T,F),
+  alcohol_flag = ifelse(charge_offense_1=="alcohol/dui"| 
+                                    charge_offense_2=="alcohol/dui"|
+                                     charge_offense_3=="alcohol/dui"| 
+                                    charge_offense_4=="alcohol/dui"|
+                                   charge_offense_5=="alcohol/dui"| 
+                                    charge_offense_6=="alcohol/dui"|
+                                     charge_offense_7=="alcohol/dui"| 
+                                    charge_offense_8=="alcohol/dui"| 
+                                   charge_offense_9=="alcohol/dui"| 
+                                    charge_offense_10=="alcohol/dui"|
+                                     charge_offense_11=="alcohol/dui"| 
+                                    charge_offense_12=="alcohol/dui"| 
+                                   charge_offense_13=="alcohol/dui"| 
+                                    charge_offense_14=="alcohol/dui"|
+                                     charge_offense_15=="alcohol/dui"|
+                                    charge_offense_16=="alcohol/dui"|
+                                   charge_offense_17=="alcohol/dui"| 
+                                    charge_offense_18=="alcohol/dui"|
+                                     charge_offense_19=="alcohol/dui"| 
+                                    charge_offense_20=="alcohol/dui"| 
+                                   charge_offense_21=="alcohol/dui"| 
+                                    charge_offense_22=="alcohol/dui"|
+                                     charge_offense_23=="alcohol/dui"| 
+                                    charge_offense_24=="alcohol/dui"| 
+                                   charge_offense_25=="alcohol/dui", T,F),
+  violent_flag = ifelse(charge_offense_1=="violent"| charge_offense_2=="violent"|
+                                     charge_offense_3=="violent"| charge_offense_4=="violent"|
+                                   charge_offense_5=="violent"| charge_offense_6=="violent"|
+                                     charge_offense_7=="violent"| charge_offense_8=="violent"| 
+                                   charge_offense_9=="violent"| charge_offense_10=="violent"|
+                                     charge_offense_11=="violent"| charge_offense_12=="violent"| 
+                                   charge_offense_13=="violent"| charge_offense_14=="violent"|
+                                     charge_offense_15=="violent"| charge_offense_16=="violent"|
+                                   charge_offense_17=="violent"| charge_offense_18=="violent"|
+                                     charge_offense_19=="violent"| charge_offense_20=="violent"| 
+                                   charge_offense_21=="violent"| charge_offense_22=="violent"|
+                                     charge_offense_23=="violent"| charge_offense_24=="violent"| 
+                                   charge_offense_25=="violent", T, F),
+  drug_flag = ifelse(charge_offense_1=="drug"| 
+                                    charge_offense_2=="drug"|
+                                     charge_offense_3=="drug"| 
+                                    charge_offense_4=="drug"|
+                                   charge_offense_5=="drug"| 
+                                    charge_offense_6=="drug"|
+                                     charge_offense_7=="drug"| 
+                                    charge_offense_8=="drug"| 
+                                   charge_offense_9=="drug"| 
+                                    charge_offense_10=="drug"|
+                                     charge_offense_11=="drug"| 
+                                    charge_offense_12=="drug"| 
+                                   charge_offense_13=="drug"| 
+                                    charge_offense_14=="drug"|
+                                     charge_offense_15=="drug"| 
+                                    charge_offense_16=="drug"|
+                                   charge_offense_17=="drug"| 
+                                    charge_offense_18=="drug"|
+                                     charge_offense_19=="drug"| 
+                                    charge_offense_20=="drug"| 
+                                   charge_offense_21=="drug"| 
+                                    charge_offense_22=="drug"|
+                                     charge_offense_23=="drug"| 
+                                    charge_offense_24=="drug"| 
+                                   charge_offense_25=="drug", T,F),
+  hf_flag = ifelse(charge_offense_1=="hunt/fish"|
+                                    charge_offense_2=="hunt/fish"|
+                                     charge_offense_3=="hunt/fish"| 
+                                    charge_offense_4=="hunt/fish"|
+                                   charge_offense_5=="hunt/fish"| 
+                                    charge_offense_6=="hunt/fish"|
+                                     charge_offense_7=="hunt/fish"| 
+                                    charge_offense_8=="hunt/fish"| 
+                                   charge_offense_9=="hunt/fish"| 
+                                    charge_offense_10=="hunt/fish"|
+                                     charge_offense_11=="hunt/fish"| 
+                                    charge_offense_12=="hunt/fish"| 
+                                   charge_offense_13=="hunt/fish"| 
+                                    charge_offense_14=="hunt/fish"|
+                                     charge_offense_15=="hunt/fish"| 
+                                    charge_offense_16=="hunt/fish"|
+                                   charge_offense_17=="hunt/fish"| 
+                                    charge_offense_18=="hunt/fish"|
+                                     charge_offense_19=="hunt/fish"| 
+                                    charge_offense_20=="hunt/fish"| 
+                                   charge_offense_21=="hunt/fish"| 
+                                    charge_offense_22=="hunt/fish"|
+                                     charge_offense_23=="hunt/fish"| 
+                                    charge_offense_24=="hunt/fish"| 
+                                   charge_offense_25=="hunt/fish",T,F),
+  charge_degree = case_when(charge_degree_1=="misdemeanor"| charge_degree_2=="misdemeanor"|
+                                     charge_degree_3=="misdemeanor"| charge_degree_4=="misdemeanor"|
+                                   charge_degree_5=="misdemeanor"| charge_degree_6=="misdemeanor"|
+                                     charge_degree_7=="misdemeanor"| charge_degree_8=="misdemeanor"| 
+                                   charge_degree_9=="misdemeanor"| charge_degree_10=="misdemeanor"|
+                                     charge_degree_11=="misdemeanor"| charge_degree_12=="misdemeanor"| 
+                                   charge_degree_13=="misdemeanor"| charge_degree_14=="misdemeanor"|
+                                     charge_degree_15=="misdemeanor"| charge_degree_16=="misdemeanor"|
+                                   charge_degree_17=="misdemeanor"| charge_degree_18=="misdemeanor"|
+                                     charge_degree_19=="misdemeanor"| charge_degree_20=="misdemeanor"| 
+                                   charge_degree_21=="misdemeanor"| charge_degree_22=="misdemeanor"|
+                                     charge_degree_23=="misdemeanor"| charge_degree_24=="misdemeanor"| 
+                                   charge_degree_25=="misdemeanor" ~ "misdemeanor", 
+                                  charge_degree_1=="gross misdemeanor"| 
+                                    charge_degree_2=="gross misdemeanor"|
+                                     charge_degree_3=="gross misdemeanor"| 
+                                    charge_degree_4=="gross misdemeanor"|
+                                   charge_degree_5=="gross misdemeanor"| 
+                                    charge_degree_6=="gross misdemeanor"|
+                                     charge_degree_7=="gross misdemeanor"| 
+                                    charge_degree_8=="gross misdemeanor"| 
+                                   charge_degree_9=="gross misdemeanor"| 
+                                    charge_degree_10=="gross misdemeanor"|
+                                     charge_degree_11=="gross misdemeanor"| 
+                                    charge_degree_12=="gross misdemeanor"| 
+                                   charge_degree_13=="gross misdemeanor"| 
+                                    charge_degree_14=="gross misdemeanor"|
+                                     charge_degree_15=="gross misdemeanor"| 
+                                    charge_degree_16=="gross misdemeanor"|
+                                   charge_degree_17=="gross misdemeanor"| 
+                                    charge_degree_18=="gross misdemeanor"|
+                                     charge_degree_19=="gross misdemeanor"| 
+                                    charge_degree_20=="gross misdemeanor"| 
+                                   charge_degree_21=="gross misdemeanor"| 
+                                    charge_degree_22=="gross misdemeanor"|
+                                     charge_degree_23=="gross misdemeanor"| 
+                                    charge_degree_24=="gross misdemeanor"| 
+                                   charge_degree_25=="gross misdemeanor" ~ "gross misdemeanor",
+                                  charge_degree_1=="misdemeanor"| charge_degree_2=="misdemeanor"|
+                                     charge_degree_3=="misdemeanor"| charge_degree_4=="misdemeanor"|
+                                   charge_degree_5=="misdemeanor"| charge_degree_6=="misdemeanor"|
+                                     charge_degree_7=="misdemeanor"| charge_degree_8=="misdemeanor"| 
+                                   charge_degree_9=="misdemeanor"| charge_degree_10=="misdemeanor"|
+                                     charge_degree_11=="misdemeanor"| charge_degree_12=="misdemeanor"| 
+                                   charge_degree_13=="misdemeanor"| charge_degree_14=="misdemeanor"|
+                                     charge_degree_15=="misdemeanor"| charge_degree_16=="misdemeanor"|
+                                   charge_degree_17=="misdemeanor"| charge_degree_18=="misdemeanor"|
+                                     charge_degree_19=="misdemeanor"| charge_degree_20=="misdemeanor"| 
+                                   charge_degree_21=="misdemeanor"| charge_degree_22=="misdemeanor"|
+                                     charge_degree_23=="misdemeanor"| charge_degree_24=="misdemeanor"| 
+                                   charge_degree_25=="misdemeanor" ~ "misdemeanor",
+                                      charge_degree_1=="petty misdemeanor"|
+                                    charge_degree_2=="petty misdemeanor"|
+                                     charge_degree_3=="petty misdemeanor"| 
+                                    charge_degree_4=="petty misdemeanor"|
+                                   charge_degree_5=="petty misdemeanor"| 
+                                    charge_degree_6=="petty misdemeanor"|
+                                     charge_degree_7=="petty misdemeanor"| 
+                                    charge_degree_8=="petty misdemeanor"| 
+                                   charge_degree_9=="petty misdemeanor"| 
+                                    charge_degree_10=="petty misdemeanor"|
+                                     charge_degree_11=="petty misdemeanor"| 
+                                    charge_degree_12=="petty misdemeanor"| 
+                                   charge_degree_13=="petty misdemeanor"| 
+                                    charge_degree_14=="petty misdemeanor"|
+                                     charge_degree_15=="petty misdemeanor"| 
+                                    charge_degree_16=="petty misdemeanor"|
+                                   charge_degree_17=="petty misdemeanor"| 
+                                    charge_degree_18=="petty misdemeanor"|
+                                     charge_degree_19=="petty misdemeanor"| 
+                                    charge_degree_20=="petty misdemeanor"| 
+                                   charge_degree_21=="petty misdemeanor"| 
+                                    charge_degree_22=="petty misdemeanor"|
+                                     charge_degree_23=="petty misdemeanor"| 
+                                    charge_degree_24=="petty misdemeanor"| 
+                                   charge_degree_25=="petty misdemeanor" ~ "petty misdemeanor",
+                                  charge_degree_1=="converted"| charge_degree_2=="converted"|
+                                     charge_degree_3=="converted"| charge_degree_4=="converted"|
+                                   charge_degree_5=="converted"| charge_degree_6=="converted"|
+                                     charge_degree_7=="converted"| charge_degree_8=="converted"| 
+                                   charge_degree_9=="converted"| charge_degree_10=="converted"|
+                                     charge_degree_11=="converted"| charge_degree_12=="converted"| 
+                                   charge_degree_13=="converted"| charge_degree_14=="converted"|
+                                     charge_degree_15=="converted"| charge_degree_16=="converted"|
+                                   charge_degree_17=="converted"| charge_degree_18=="converted"|
+                                     charge_degree_19=="converted"| charge_degree_20=="converted"| 
+                                   charge_degree_21=="converted"| charge_degree_22=="converted"|
+                                     charge_degree_23=="converted"| charge_degree_24=="converted"| 
+                                   charge_degree_25=="converted" ~ "converted",
+                                  charge_degree_1=="other"| charge_degree_2=="other"|
+                                     charge_degree_3=="other"| charge_degree_4=="other"|
+                                   charge_degree_5=="other"| charge_degree_6=="other"|
+                                     charge_degree_7=="other"| charge_degree_8=="other"| 
+                                   charge_degree_9=="other"| charge_degree_10=="other"|
+                                     charge_degree_11=="other"| charge_degree_12=="other"| 
+                                   charge_degree_13=="other"| charge_degree_14=="other"|
+                                     charge_degree_15=="other"| charge_degree_16=="other"|
+                                   charge_degree_17=="other"| charge_degree_18=="other"|
+                                     charge_degree_19=="other"| charge_degree_20=="other"| 
+                                   charge_degree_21=="other"| charge_degree_22=="other"|
+                                     charge_degree_23=="other"| charge_degree_24=="other"| 
+                                   charge_degree_25=="other" ~ "other",
+                                  TRUE~""),
+         charge_offense = case_when(charge_offense_1=="alcohol/dui"| 
+                                    charge_offense_2=="alcohol/dui"|
+                                     charge_offense_3=="alcohol/dui"| 
+                                    charge_offense_4=="alcohol/dui"|
+                                   charge_offense_5=="alcohol/dui"| 
+                                    charge_offense_6=="alcohol/dui"|
+                                     charge_offense_7=="alcohol/dui"| 
+                                    charge_offense_8=="alcohol/dui"| 
+                                   charge_offense_9=="alcohol/dui"| 
+                                    charge_offense_10=="alcohol/dui"|
+                                     charge_offense_11=="alcohol/dui"| 
+                                    charge_offense_12=="alcohol/dui"| 
+                                   charge_offense_13=="alcohol/dui"| 
+                                    charge_offense_14=="alcohol/dui"|
+                                     charge_offense_15=="alcohol/dui"|
+                                    charge_offense_16=="alcohol/dui"|
+                                   charge_offense_17=="alcohol/dui"| 
+                                    charge_offense_18=="alcohol/dui"|
+                                     charge_offense_19=="alcohol/dui"| 
+                                    charge_offense_20=="alcohol/dui"| 
+                                   charge_offense_21=="alcohol/dui"| 
+                                    charge_offense_22=="alcohol/dui"|
+                                     charge_offense_23=="alcohol/dui"| 
+                                    charge_offense_24=="alcohol/dui"| 
+                                   charge_offense_25=="alcohol/dui" ~ "alcohol/dui",
+                                  charge_offense_1=="violent"| charge_offense_2=="violent"|
+                                     charge_offense_3=="violent"| charge_offense_4=="violent"|
+                                   charge_offense_5=="violent"| charge_offense_6=="violent"|
+                                     charge_offense_7=="violent"| charge_offense_8=="violent"| 
+                                   charge_offense_9=="violent"| charge_offense_10=="violent"|
+                                     charge_offense_11=="violent"| charge_offense_12=="violent"| 
+                                   charge_offense_13=="violent"| charge_offense_14=="violent"|
+                                     charge_offense_15=="violent"| charge_offense_16=="violent"|
+                                   charge_offense_17=="violent"| charge_offense_18=="violent"|
+                                     charge_offense_19=="violent"| charge_offense_20=="violent"| 
+                                   charge_offense_21=="violent"| charge_offense_22=="violent"|
+                                     charge_offense_23=="violent"| charge_offense_24=="violent"| 
+                                   charge_offense_25=="violent" ~ "violent", 
+                                  charge_offense_1=="drug"| 
+                                    charge_offense_2=="drug"|
+                                     charge_offense_3=="drug"| 
+                                    charge_offense_4=="drug"|
+                                   charge_offense_5=="drug"| 
+                                    charge_offense_6=="drug"|
+                                     charge_offense_7=="drug"| 
+                                    charge_offense_8=="drug"| 
+                                   charge_offense_9=="drug"| 
+                                    charge_offense_10=="drug"|
+                                     charge_offense_11=="drug"| 
+                                    charge_offense_12=="drug"| 
+                                   charge_offense_13=="drug"| 
+                                    charge_offense_14=="drug"|
+                                     charge_offense_15=="drug"| 
+                                    charge_offense_16=="drug"|
+                                   charge_offense_17=="drug"| 
+                                    charge_offense_18=="drug"|
+                                     charge_offense_19=="drug"| 
+                                    charge_offense_20=="drug"| 
+                                   charge_offense_21=="drug"| 
+                                    charge_offense_22=="drug"|
+                                     charge_offense_23=="drug"| 
+                                    charge_offense_24=="drug"| 
+                                   charge_offense_25=="drug" ~ "drug",
+                                      charge_offense_1=="hunt/fish"|
+                                    charge_offense_2=="hunt/fish"|
+                                     charge_offense_3=="hunt/fish"| 
+                                    charge_offense_4=="hunt/fish"|
+                                   charge_offense_5=="hunt/fish"| 
+                                    charge_offense_6=="hunt/fish"|
+                                     charge_offense_7=="hunt/fish"| 
+                                    charge_offense_8=="hunt/fish"| 
+                                   charge_offense_9=="hunt/fish"| 
+                                    charge_offense_10=="hunt/fish"|
+                                     charge_offense_11=="hunt/fish"| 
+                                    charge_offense_12=="hunt/fish"| 
+                                   charge_offense_13=="hunt/fish"| 
+                                    charge_offense_14=="hunt/fish"|
+                                     charge_offense_15=="hunt/fish"| 
+                                    charge_offense_16=="hunt/fish"|
+                                   charge_offense_17=="hunt/fish"| 
+                                    charge_offense_18=="hunt/fish"|
+                                     charge_offense_19=="hunt/fish"| 
+                                    charge_offense_20=="hunt/fish"| 
+                                   charge_offense_21=="hunt/fish"| 
+                                    charge_offense_22=="hunt/fish"|
+                                     charge_offense_23=="hunt/fish"| 
+                                    charge_offense_24=="hunt/fish"| 
+                                   charge_offense_25=="hunt/fish" ~ "hunt/fish",
+                                  charge_offense_1=="other"| charge_offense_2=="other"|
+                                     charge_offense_3=="other"| charge_offense_4=="other"|
+                                   charge_offense_5=="other"| charge_offense_6=="other"|
+                                     charge_offense_7=="other"| charge_offense_8=="other"| 
+                                   charge_offense_9=="other"| charge_offense_10=="other"|
+                                     charge_offense_11=="other"| charge_offense_12=="other"| 
+                                   charge_offense_13=="other"| charge_offense_14=="other"|
+                                     charge_offense_15=="other"| charge_offense_16=="other"|
+                                   charge_offense_17=="other"| charge_offense_18=="other"|
+                                     charge_offense_19=="other"| charge_offense_20=="other"| 
+                                   charge_offense_21=="other"| charge_offense_22=="other"|
+                                     charge_offense_23=="other"| charge_offense_24=="other"| 
+                                   charge_offense_25=="other" ~ "other",
+                                  TRUE~"")) %>%
+  select(Case_Mkey, charge_offense, charge_degree, dui_tag, 
+         violent_flag, hf_flag, drug_flag, alcohol_flag, 
+         petty_flag, felony_flag, gm_flag, misdem_flag)
+
+  
+write_csv(charge.case, "C:/Users/rlarson21/Documents/Research/Monetary Sanctions/MonSanc/Data Build/charge_case.csv")
+  
+#merge to monsanc
+  #semi-join: effectively removing cases w/o non-drop charge
+monsanc <- monsanc %>% 
+  semi_join(charge.case, by = "Case_Mkey") %>% 
+  left_join(charge.case, by = "Case_Mkey")
+
+write_csv(monsanc, "C:/Users/rlarson21/Documents/Research/Monetary Sanctions/MonSanc/Data Build/monsanc_charge.csv")
+  
+
+rm(charge, charge.case)
+```
+
+
+```{r, warning=F, echo=T}
+#processing sentence files
+sentence <- read_delim("C:/Users/rlarson21/Documents/Research/Monetary Sanctions/MonSanc/Original Data/Sentence.txt", delim = "|", na = "NULL", trim_ws = T) %>%
+    slice(-dim(.)[1]) %>% select(Case_Mkey, Level_Of_Sentence_Reduced_From_Charge_Flag) %>%
+    rename(reduce = Level_Of_Sentence_Reduced_From_Charge_Flag) %>%
+  group_by(Case_Mkey) %>% 
+  mutate(count = row_number()) %>% 
+  filter(count <= 10) %>%
+  gather(key = "variable", value="value", -Case_Mkey, -count) %>%
+  unite(variable_number,variable, count) %>%
+  spread(key = variable_number, value = value, fill = NA) %>%
+  ungroup() %>%
+  replace(is.na(.), "No") %>%
+  mutate(reduce = case_when(
+    reduce_1=="Yes"| reduce_2=="Yes"|reduce_3=="Yes"| reduce_4=="Yes"|
+                               reduce_5=="Yes"| reduce_6=="Yes"| 
+                               reduce_7=="Yes"| reduce_8=="Yes"| 
+                               reduce_9=="Yes"| reduce_10=="Yes" ~ "yes", TRUE ~ "no")) %>% 
+  select(Case_Mkey, reduce)
+
+monsanc <- monsanc %>% left_join(sentence, by = "Case_Mkey")
+
+rm(sentence)
+
+#cleaning confinement file
+sentence.confinement <- read_delim("C:/Users/rlarson21/Documents/Research/Monetary Sanctions/MonSanc/Original Data/Sentence_Confinement.txt", 
+                                 delim = "|", na = "NULL", trim_ws = T, 
+                                 col_types = list(col_double(), col_double(), col_double(), 
+                                                  col_character(), col_character(), col_character(), 
+                                                  col_character(), col_character(), col_character(),
+                                                  col_character(),  col_double(), col_double(), 
+                                                  col_double(), col_character(), col_double(), 
+                                                  col_double(), col_double(), col_character(), 
+                                                  col_double(), col_double(), col_double(),
+                                                  col_character(), col_double(), col_double(),
+                                                  col_double(), col_double(), col_double(), 
+                                                  col_double(), col_double(), col_double(),
+                                                  col_double())) %>% slice(-dim(.)[1]) %>% 
+  mutate_at(vars(matches(c("Days|Years|Months"))), any_vars(ifelse(is.na(.), 0, .))) %>%
+  mutate(stated_conf_days = Sentence_Confinement_Stated_Confinement_Days + 
+                            round(Sentence_Confinement_Stated_Confinement_Months*(365/12), digits=0) +
+                            Sentence_Confinement_Stated_Confinement_Years*365,
+         cond_conf_days = Sentence_Confinement_Stated_Cond_Conf_Days + 
+                            round(Sentence_Confinement_Stated_Cond_Conf_Months*(365/12), digits=0) +
+                            Sentence_Confinement_Stated_Cond_Conf_Years*365, 
+         credit_days = Sentence_Confinement_Credit_Days + 
+                            round(Sentence_Confinement_Credit_Months*(365/12), digits=0) +
+                            Sentence_Confinement_Credit_Years*365,
+         stayed_days = Sentence_Confinement_Stated_Stayed_Days + 
+                            round(Sentence_Confinement_Stated_Stayed_Months*(365/12), digits=0) +
+                            Sentence_Confinement_Stated_Stayed_Years*365, 
+         stay_flag = ifelse(Sentence_Confinement_Stay_Flag=="Yes", 1, 0),
+         prison_flag = ifelse(Sentence_Confinement_Desc=="MN Commit to Commissioner of Corrections - Adult" &                                 Sentence_Confinement_Stay_Flag=="Yes",1,0)) %>%
+  select(Sentence_Mkey, stated_conf_days, cond_conf_days, credit_days, 
+         stayed_days, stay_flag, prison_flag) %>%
+  group_by(Sentence_Mkey) %>%
+  summarize(stated_conf_days = sum(stated_conf_days, na.rm = T), 
+            cond_conf_days = sum(cond_conf_days, na.rm = T),
+            credit_days = sum(credit_days, na.rm = T), 
+            stayed_days = sum(stayed_days, na.rm = T), 
+            stay_flag = sum(stay_flag, na.rm = T),
+            prison_flag = sum(prison_flag, na.rm = T)) %>%
+  mutate(stay_flag = ifelse(stay_flag > 0, 1, 0),
+         prison_flag = ifelse(prison_flag > 0, 1, 0))
+
+#join to sentence to be able to agg and merge to case-level
+sentence <- read_delim("C:/Users/rlarson21/Documents/Research/Monetary Sanctions/MonSanc/Original Data/Sentence.txt", 
+                                   delim = "|", na = "NULL", trim_ws = T) %>%
+    slice(-dim(.)[1]) %>% select(Case_Mkey, Sentence_Mkey) %>% 
+    left_join(sentence.confinement, by = "Sentence_Mkey") %>%
+    mutate_at(vars(matches(c("days"))), any_vars(ifelse(is.na(.), 0, .))) %>%
+    mutate(prison_flag = ifelse(is.na(prison_flag), 0, prison_flag),
+           stay_flag = ifelse(is.na(stay_flag), 0, stay_flag))
+
+
+##calculation of stated confinement and time served
+sent.case <- sentence %>% 
+  mutate(conf_days = ifelse(cond_conf_days > 0, cond_conf_days, stated_conf_days),
+         time_served = ifelse(stay_flag=="yes",
+                              conf_days-stayed_days-credit_days,
+                              conf_days-credit_days),
+         conf_minus_stayed = conf_days-stayed_days) %>%
+  select(Case_Mkey, conf_days, time_served, conf_minus_stayed, credit_days, 
+         stay_flag, prison_flag) %>%
+  group_by(Case_Mkey) %>%
+  summarize(conf_days = sum(conf_days, na.rm=T),
+            time_served = sum(time_served, na.rm = T),
+            conf_minus_stayed = sum(conf_minus_stayed, na.rm = T), 
+            credit_days = sum(credit_days, na.rm = T),
+            stay_flag = sum(stay_flag, na.rm = T),
+            prison_flag = sum(prison_flag, na.rm = T)) %>%
+  mutate(perc_credit = 100*(credit_days/conf_days),
+         prison_flag = ifelse(prison_flag > 0, 1, 0),
+         stay_flag = ifelse(stay_flag > 0, 1, 0))
+
+#merge confinement to monsanc
+monsanc <- monsanc %>% left_join(sent.case, by = "Case_Mkey") %>%
+  mutate(conf_days = ifelse(is.na(conf_days), 0, conf_days),
+         time_served = ifelse(is.na(time_served), 0, time_served),
+         credit_days = ifelse(is.na(credit_days), 0, credit_days),
+         conf_minus_stayed = ifelse(is.na(conf_minus_stayed), 0, conf_minus_stayed))
+
+rm(sent.case, sentence.confinement)
+
+#cleaning probation file
+sentence.probation <- read_delim("C:/Users/rlarson21/Documents/Research/Monetary Sanctions/MonSanc/Original Data/Sentence_Probation.txt", 
+                                 delim = "|", na = "NULL", trim_ws = T) %>% slice(-dim(.)[1]) %>%
+  mutate_at(vars(matches(c("Days|Years|Months"))), any_vars(ifelse(is.na(.), 0, .))) %>%
+  mutate(prob_days = Sentence_Probation_Stated_Probation_Days + 
+                            round(Sentence_Probation_Stated_Probation_Months*(365/12), digits=0) +
+                            Sentence_Probation_Stated_Probation_Years*365) %>%
+  mutate(prob_days = ifelse(Sentence_Probation_Stated_Probation_Indeterminate_Flag=="Yes",
+                            NA, prob_days)) %>%
+  select(Case_Mkey, prob_days) %>%
+  group_by(Case_Mkey) %>%
+  summarize(prob_days = sum(prob_days, na.rm=T))
+
+#aggregate probation by case_mkey
+monsanc <- monsanc %>% left_join(sentence.probation, by = "Case_Mkey") %>%
+  mutate(prob_days = ifelse(is.na(prob_days), 0, prob_days))
+
+rm(sentence.probation)
+
+#merge in sentence date
+sentence <- read_delim("C:/Users/rlarson21/Documents/Research/Monetary Sanctions/MonSanc/Original Data/Sentence.txt", delim = "|", na = "NULL", trim_ws = T) %>%
+    slice(-dim(.)[1]) %>% select(Case_Mkey, Sentence_Date) %>% filter(!duplicated(Case_Mkey))
+
+monsanc <- monsanc %>% left_join(sentence, by = "Case_Mkey")
+rm(sentence)
+
+write_csv(monsanc, "C:/Users/rlarson21/Documents/Research/Monetary Sanctions/MonSanc/Data Build/monsanc_sentence.csv")
+```
+
+```{r, warning=F, echo=T}
+#processing party file
+party <- read_delim("C:/Users/rlarson21/Documents/Research/Monetary Sanctions/MonSanc/Original Data/Party.txt", delim = "|", na = "NULL", trim_ws = T,
+                    escape_double = F) %>% 
+  slice(-dim(.)[1]) %>%
+  select(-Party_State_ID_Number, -Party_FBI_Number, -Party_Name_Current_Flag,
+         -Party_Name_Inactive_Flag, -Party_Name_Entered_Date) 
+
+#problems(party) #parsing failures
+str(party)
+
+#different defendants, same case_mkey
+dim(party)[1]-length(unique(party$Case_Mkey))
+
+#character vector of businesses-for filtering (based on Rob's code)
+business <-  c(" CAR "," CARS "," SCHL ", " CO ", " INC "," ELEC ", " SERV ", " PAINT "," CONST "," SYS "," TIRE ", " SALES "," CHEV ", " LLC "," CORP "," OFFICE ","COMPANY","TWIN CITY"," AUTO ","CAR2GO"," CITY ", 	"SERVICE"," TAXI ","ASSOCIATES","ENTERPRISES","REALTY","PROGRAM","CONTRACTING",
+ "MECHANICAL"," LLP "," LTD ","SVCS","QUIZNOS","MTRS", " DEPT ","CONSULTING","TRUCKING","TRANSPORT", "SOFTWARE","HYUNDAI","HEALTHCARE","REMODELING","STAR TRIBUNE"," FLEET ","DIVERSIFIED","TEEN CHALLENGE",
+"FED EX","HONDA LEASE","RENT A CAR"," CTR ","MINISTRIES"," GROUP ","STUDIO","CARPETS","PAINTING", "COMMUNICATION","INVESTMENT"," SPORTS ","MEDICAL","BUILDERS","LANDSCAP","LAWNCARE","LIMOUSINE","ELECTRIC","CONTRACT","HEATING","PLBG","PLUMBING"," HTG ","APPLIANCE","FLORIST","LAWN CARE","DRIVING",
+" AAA ","SANITATION","CHECKER CAB","WCCO","PHOTOG","CREDIT UNION","ROOFING","ADVANCED","EXECUTIVE",
+" TRUST ","REVOCABLE","LOGGING","ERROR","HEATING","HENNEPIN","MINNESOTA","MINNEAPOLIS",
+"DEPARTMENT","MTRS","EXPR","TECHNOLOGIES","RESTAURANT","BODYWORK"," LSG ","TELECONCEPTS","AUTOMOTIVE", "MARKETING","MASONRY","EXCAVATING","DRYWALL","TRKING","MAINTANACE"," LIMOS ","BLACKTOPPING", "MOTORS","FDS","TELEVISION","FINANCIAL","GRAPHICS","UNLIMITED","BLDRS","VENDING","REBUILDING","TELECOM", " EQUIP ","DELIVERY","RNTL","MANGMENT","CONSTRUCTION","BUILDINGS","DISTRIBUTION",
+"DEVELOPMENT","PROBATION"," TOOL ","INVESTMENT","PARTNERSHIP","CLEANERS","COMPANIES"," ASSOC ","BLACKTOP", "LIVESTOCK","AMOCO","INSTALLATION","LEASING","RACING"," TRADING "," ENTR ","PRINTING","DYNAMICS", "DISTRIBUTING","REBUILDING","FARMS","COPPERMANASSOCIATES","EXTERIORS","SERVS","REMOVAL","OUTDOORS",
+"US FUNDING","TOWING","MACHINERY","A A A","INVESTMENST","M I BANK","C P INTERNET","U S DIAMOND", "INDUSTRIES","S C R A M","PROPERTIES","HOLDINGS","VOLUNTEERS","INFORMATION","WIRELESS","FASHION", "INSTERSTATE","ELECTRICAL","A B WELDING MFG"," CARPET ","ABOVE THE LINE LEADERS INT","CONCRETE", "FLOORING","ADVISORS RESOURCE","CATERING"," DESIGN ","DENNY HECKER","BUILDING","FINANCIN",
+"AMERICAN CREDIT ACCEPTANCE","ANDERSON CC","ASHA HOME HEALTH CARE","AT HOME APARTMENTS",
+"AURORA STRATEGIC ADVISORS","BACK ON TRACK","BAD AXE LAKE ASSN","BERNATELLOS PIZZA",
+"BERNETT HOME IMPROVEMENT","BIYNAH INDUSTRIAL PARTNERS L","BLOOMINGTON ACURA","BONANZA GRAIN",
+"LIMITIED","SYNAGOGUE","EQUIP","BRAD OLSON CONCRETE","BRIAN J KAREN L BEBEL TRUS",
+"BRIDE TO BE CONSIGNMENT","BRIGHTON SANDBLASTING","BURLINGTON NORTHERN SANTA FE RAILROAD",
+"BURLINGTON NORTHERN SANTE FE","CAPITAL ONE BANK USA NA","CAPUAL VENTURES","CENEX HARVEST STATES",  "CUSTOM","FOODS","MASONRY","ENTERPRISE","CHENSTONE CG","EMERGENCY","INTERNATIONAL","ARCHITECTURE", "CHRISITIANN M MALLINGER REVO","MGMT","PROPERTY","INTERTAINMENT","CHRISTOPHER QUINN VIOLINS IN",
+"CIRRUS FLIGHT OPERATIONS","COMMERCIAL ASPHALT REPAIR","COMPLETE GROUNDS MAINTENANCE",
+"CONCORD MEAT PROCESSING","CORRECTIVE EXERCISE SPC","CRYSTAL BAY CAPITAL CONSULTI","CS RENTALS", "EQUIPMENT","BUSINESS","ACADEMY","SPECIALTIES","DANCIN OFF BROADWAY",
+"DAVID SUSAN PETERSON REV L","DECAIGNY EXCVATING","LABORATORIES","DECORATING","DECORAH BUILDING SUPPLY",
+"DISTINGUISHED LAWN LANDSCA","DIV INTERNATIONAL","DIVINE BLINDS","DRS NORTH WATSON OPTOM PA", "PRODUCTIONS","SYSTEM","EAGLE SQUARE","EAST AFRICAN BAKERY","ACCESS MEDIA",
+"ELZABETH HILDEGARD FOLEY REV"," TRAVEL ","ERICKSON WOOD CHIPS","ETHIX REINSURANCE INTRMEDIAR",
+"EVANS GRAIN FARM","INTELLIGENT","AGENCY","SOLUTIONS","FARMERS STATE BANK","FLAHERTYS HITECH TRAILERS", "FOUR SEASON MAINTENANCE","FRANKLIN BUSINESS ADVISORS I","FREDDIES MINI STORAGE",
+"FUTURE STARS CHILD CARE","GOULD CHEVROLET","CORPORATION","GUARDIAN PEST SOLUTIONS","HA TEIN GROCERY", "HARRINGTON ORTHODONTICS","HAUSER HOMES","HEDLUND ENG","HIGH PROFILE GROUND MAINT",
+"HIGH PROFILE GROUNDS MAINT I","HOLMEN PROMOTIONS","HOMETOWN FURNITURE","ICE ISTALLING COOLERS ECT IN", "INVISION DISTINCTIVE EYEWARE","JAMES D FOLEY MD PA","JANESVILLE CAR WASH",
+"JANICE BERG IRREV SPEC NEEDS","JLA INDUSTRIAL EQUIPMENT","JOHN HANSON WOOD PRODUCTS",
+"JOHNSON JEWELERS","JOHNSON MVG","JOHNSON TIMBER HARVESTING IN","KAB SEAL COATING","KALS RENTAL",
+"KELLY CONCRETE","KISSERY","LAW FIRM","KRIEGLER REHABILITATION","LAKE REGION PETROLEUM",
+"LAKEVILLE MOTOR EXPRESS","LAKO DRILLING","LEES PIZZA","LMV NYP SECURITY PATROL",
+"LONG CHENG MEAT PROCESSING","LOVE IN ACTION ADMISTERY","LUCKEN TRUCK PARTS","LUKEN ARCHITECTURE PA", "MAANDEEQ HOME HEALTH CARE LL","MAC MACINC","MAINSTREAM GUTTERS","MALINSKI PROP","MARVEL BOOKKEEPING", "MAU FARM MANAGEMENT","MAX R ELKIN IRREVOCABLE TRUS","MEGASHIP VENTURES","MICK JOHNSON DISPOSAL","MIDWEST HOLIDAY LAWN","MIDWEST QUALITY HOME CARE IN","MIDWEST WHOLESALE","MOLITER BROTHERS FARM","MORKEN EXPRESS", "MORRIS MICHELE M DOLLAR TREE","MORRISON COUNTY PUBLIC WORKS","MUSE MGMT ENTERTAINMENT","NATURAL HOMES BY JOHN PASTUC","NETWORK ACCESS PRODS","NEWGATE ED RESEARCH CENTER","NISSAN INFINITI LT","NISSANINFINITI LT","NORTH COUNTY PAVING","NORTH MEMORIAL AMBULANCE",
+"NORTH PRO REPRESENTATIVES IN","NORTHERN ENGINE SUPPLY","NORTHSTAR READY MIX","OLSON HAULING",
+"PAPAS CAFE","PAX CONNEX","PERFORMANCE FOAM INSULATION","PETERSON PROFESSIONAL PAPER","PRO POLISH", "PROFESSIONAL TOUCH PTG REN","PROSPERO INST FOR INVESTORS","QUALITY COACHES","RAMSEY CTY HNDA GL",
+"RED WING CHRYSLER","REDLINE ARCHIT SHEET METAL L","REMUND FAMILY REV LIVING TRU","RF MOELLER",
+"RICHARD ALMA SCHNEIDER REV","ROBERT CARY SPARROW REV TRUS","LAW OFFICE","S R CUSTOM LAMINATE WOOD", "SAGINAW PAVING HOME IMPROVEMENT PAY ND","SAGINAW PAVING PAY ST","SCHAEFER HARDWOOD FLOORS",
+"SCHNEIDER CARPET ONE","SEASONS BLESSINGS SUDERS","SEMPSTONE PRODUCTS","SHARMA BROS KIRTI KANT", "SIMPLEXGRINNELL LP","SIVERTSON GALLERY","SOUTH TOWN REFRIGERATION",
+"SOUTHERN WEST FUNERAL HOMES","SUPERIOR FORD","TACO JOHNS","TARGET NATIONAL BANK","TAYO HOME HEALTH",
+"THE CAROL L HEASLEY LIVING T","FAMILY","REAL EASTATE"," PLACE ","ARCHITECT","APPLE VALLEY","APOSTOLIC",
+"ARAMARK","MPLS","TOWLE PROP","TWIN PINES WINDOW CLEANING","UNIVERSITY","COMCAST",
+"CHRIST CHURCH","H O M E S","MIDWEST","MGMT","INSTALLATION","VEIN CLINIC PA","ASSOCIATION",
+" REV T","CONVENIENCE","XTREME CLEAN","Z VISION TOURS","SWAT RESPONSE","COMMISSIONER OF PUBLIC SAFETY",
+"ON TIME TRAN","GARAGE FLOOR COATING OF MINN","PARAGON PROP OF MAPLE GROVE",
+"LIMITIED","AUTOWORLD","AUTOS","AIRPORT","VOLVO","SISTERS OF","THE ESTATE OF CHRISTOPHER ZIMMER", "FUNERAL","CLEANING","WASTE MANAGEMENT OF WI","WD WINTER AND ASSC","EMPLOYEE BENIFIT AND INS SER", "SHEGSTAD AND SONS","BUSHES AND BEYOND","PUBLIC", " SCHOOL "," DIST ","MORTGAGE","FLOOR SANDING", " LOCAL "," IBEW ","DECEASED","DAYCARE","BEST BUY","WHITE BEAR","REPAIR","CNTY","IMPORT",
+"EXPORT","APARTMENT","CLEANING","CORPORATION", "COBALT", "MINNCO")
+
+other.remove <- c("PRIVATE","MNCIS","DEFECTIVE","UNKNOWN", "DELETE", "ERROR")
+
+address.replace <- c("NO CURRENT ADDRESS DO NOT SEND NOTICE","NO CURRENT ADDRESS NO MAILED NOTICE",
+"NO PERMANENT ADDRESS","DECEASED","NO PRESENT ADDRESS","CONFIDENTIAL","UNKNOWN","ADDRESS",
+"UNDELIVERABLE","HOMELESS","WHERE THAT MAY BE","SAFE PLACE","SUBJECTS RESIDENCE","UNITED STATES",
+"NO MAILED NOTICES","GENERAL DELIVERY","XXX","XX","ZZ","ZZZ","NPA","NKA","UNK","N P A","ADDRESS UNKNOWN", "NO CURRENT NO MAILED","NO GOOD 4611","NO PERM")
+
+#string to detect OID number
+oid <- c("OID", "OID#", "#OID", "OID ", " OID", " OID ")
+
+#strings that OID code picks up but reverted to no prison
+oid.fix <- c("WOIDA", "NOID", "GOIDENROD", "RESERVOID", "GOIDER", "OID CEDAR AVE","FLOIDA")
+
+name.process <- function(x){
+  upper <- str_to_upper(x) #transform to uppercase
+  despace <- str_replace_all(upper,"  "," ") #remove double spaces
+  trim <- str_trim(despace, side = "both") #trim whitespace
+  clean <- str_remove_all(trim, pattern = "[^[:alpha:][:space:]'-]") #remove some special characters
+}
+
+address.process <- function(x){
+  upper <- str_to_upper(x) #transform to uppercase
+  despace <- str_replace_all(upper,"  "," ") #remove double spaces
+  trim <- str_trim(despace, side = "both") #trim whitespace
+  clean <- str_remove_all(trim, pattern = "[^[:alnum:][:space:]'#]") #remove some special characters
+  replace <- str_replace_all(clean, pattern = paste(address.replace, collapse = "|"),
+                             replacement = "")
+}
+
+city.process <- function(x){
+  upper <- str_to_upper(x) #transform to uppercase
+  despace <- str_replace_all(upper,"  "," ") #remove double spaces
+  trim <- str_trim(despace, side = "both") #trim whitespace
+  clean <- str_remove_all(trim, pattern = "[^[:alpha:][:space:]]") #remove some special characters
+}
+
+
+zip.process <- function(x){
+  despace <- str_replace_all(x,"  "," ") #remove double spaces
+  trim <- str_trim(despace, side = "both") #trim whitespace
+  clean <- str_remove_all(trim, pattern = "[^[:digit:]-]") #remove some special characters
+}
+
+
+#clean party file
+party.clean <- party %>% 
+  filter(!(row_number() %in% problems(party)$row)) %>% #1216 cases
+  mutate(birth_date = as.Date(Party_Current_Birth_Date)) %>%
+  filter(is.na(Party_Current_Birth_Date) | Party_Current_Birth_Date > "1900-01-01") %>% #177 cases
+  select(-Party_Current_Birth_Date) %>%
+  mutate(name_full = name.process(Party_Name_Full),
+         name_first =  name.process(Party_Name_First),
+         name_middle =  name.process(Party_Name_Middle),
+         name_last =  name.process(Party_Name_Last),
+         name_suffix = name.process(Party_Name_Suffix)) %>%
+  mutate(name_full_order = paste(name_first, name_middle, name_last,name_suffix)) %>%
+  mutate(name_full_order = str_remove_all(name_full_order, pattern = c("NA | NA | NA"))) %>%
+  select(-starts_with("Party_Name")) %>%
+  #filter(!str_detect(name_full, paste(business, collapse = "|"))) %>%
+  #filter_at(vars(starts_with("name_")), 
+            #any_vars(!str_detect(., pattern = paste(other.remove, collapse = "|")))) %>%
+  mutate(business_flag = case_when(
+    str_detect(name_full, paste(business, collapse = "|")) ~ "Yes",
+    TRUE ~ "No"),
+    other_remove_flag = case_when(
+    str_detect(name_full, paste(other.remove, collapse = "|")) ~ "Yes",
+    str_detect(name_first, paste(other.remove, collapse = "|")) ~ "Yes",
+    str_detect(name_middle, paste(other.remove, collapse = "|")) ~ "Yes",
+    str_detect(name_last, paste(other.remove, collapse = "|")) ~ "Yes",
+    TRUE ~ "No")) %>%
+  mutate(zip_code = zip.process(Party_Address_Zip_Code),
+         address_line1 = address.process(Party_Address_Line1),
+         address_line2 = address.process(Party_Address_Line2),
+         address_line3 = address.process(Party_Address_Line3),
+         address_line4 = address.process(Party_Address_Line4),
+         address_city = city.process(Party_Address_City)) %>%
+  rename(address_state = Party_Address_State_Code) %>%
+  select(-starts_with("Party_Address")) %>%
+  rename(race = Self_Rpt_Race, gender = Party_Gender_Code) %>%
+  mutate(oid_tag = case_when( 
+            str_detect(address_line1, pattern = paste(oid, collapse = "|")) ~ "YES",
+            str_detect(address_line2, pattern = paste(oid, collapse = "|")) ~ "YES",
+            str_detect(address_line3, pattern = paste(oid, collapse = "|")) ~ "YES",
+            str_detect(address_line4, pattern = paste(oid, collapse = "|")) ~ "YES",
+            TRUE~"NO")) %>%
+  mutate(oid_tag = ifelse(
+   str_detect(address_line1, pattern = paste(oid.fix, collapse = "|")),"NO",oid_tag)) %>% 
+  mutate(mnprison = case_when(
+   str_detect(address_line1, c("STILL|970|PICKETT")) & oid_tag=="YES"~ "STILLWATER",
+   str_detect(address_line2, c("STILL|970|PICKETT")) & oid_tag=="YES"~ "STILLWATER",
+   str_detect(address_line3, c("STILL|970|PICKETT")) & oid_tag=="YES"~ "STILLWATER",
+   str_detect(address_line4, c("STILL|970|PICKETT")) & oid_tag=="YES"~ "STILLWATER",
+   str_detect(address_line1, c("RUSH|7600")) & oid_tag=="YES"~ "RUSH CITY",
+   str_detect(address_line2, c("RUSH|7600")) & oid_tag=="YES"~ "RUSH CITY",
+   str_detect(address_line3, c("RUSH|7600")) & oid_tag=="YES"~ "RUSH CITY",
+   str_detect(address_line4, c("RUSH|7600")) & oid_tag=="YES"~ "RUSH CITY",
+   str_detect(address_line1, c("FARI|FAIR|LINDEN|1101")) & oid_tag=="YES"~ "FARIBAULT",
+   str_detect(address_line2, c("FARI|FAIR|LINDEN|1101")) & oid_tag=="YES"~ "FARIBAULT",
+   str_detect(address_line3, c("FARI|FAIR|LINDEN|1101")) & oid_tag=="YES"~ "FARIBAULT",
+   str_detect(address_line4, c("FARI|FAIR|LINDEN|1101")) & oid_tag=="YES"~ "FARIBAULT",
+   str_detect(address_line1, c("SHAK|1010")) & oid_tag=="YES"~ "SHAKOPEE",
+   str_detect(address_line2, c("SHAK|1010")) & oid_tag=="YES"~ "SHAKOPEE",
+   str_detect(address_line3, c("SHAK|1010")) & oid_tag=="YES"~ "SHAKOPEE",
+   str_detect(address_line4, c("SHAK|1010")) & oid_tag=="YES"~ "SHAKOPEE",
+   str_detect(address_line1, c("OAK|OSGOOD|5329")) & oid_tag=="YES"~ "OAK PARK HEIGHTS",
+   str_detect(address_line2, c("OAK|OSGOOD|5329")) & oid_tag=="YES"~ "OAK PARK HEIGHTS",
+   str_detect(address_line3, c("OAK|OSGOOD|5329")) & oid_tag=="YES"~ "OAK PARK HEIGHTS",
+   str_detect(address_line4, c("OAK|OSGOOD|5329")) & oid_tag=="YES"~ "OAK PARK HEIGHTS",
+   str_detect(address_line1, c("ST CLOUD|CLOUD|2305|MINNESOTA B")) & oid_tag=="YES"~ "ST CLOUD",
+   str_detect(address_line2, c("ST CLOUD|CLOUD|2305|MINNESOTA B")) & oid_tag=="YES"~ "ST CLOUD",
+   str_detect(address_line3, c("ST CLOUD|CLOUD|2305|MINNESOTA B")) & oid_tag=="YES"~ "ST CLOUD",
+   str_detect(address_line4, c("ST CLOUD|CLOUD|2305|MINNESOTA B")) & oid_tag=="YES"~ "ST CLOUD",
+   str_detect(address_line1, c("MOOSE|SHORE")) & oid_tag=="YES"~ "MOOSE LAKE",
+   str_detect(address_line2, c("MOOSE|SHORE")) & oid_tag=="YES"~ "MOOSE LAKE",
+   str_detect(address_line3, c("MOOSE|SHORE")) & oid_tag=="YES"~ "MOOSE LAKE",
+   str_detect(address_line4, c("MOOSE|SHORE")) & oid_tag=="YES"~ "MOOSE LAKE",
+   str_detect(address_line1, c("TOGO|6271")) & oid_tag=="YES"~ "TOGO",
+   str_detect(address_line2, c("TOGO|6271")) & oid_tag=="YES"~ "TOGO",
+   str_detect(address_line3, c("TOGO|6271")) & oid_tag=="YES"~ "TOGO",
+   str_detect(address_line4, c("TOGO|6271")) & oid_tag=="YES"~ "TOGO",
+   str_detect(address_line1, c("LINO|7525")) & oid_tag=="YES"~ "LINO LAKES",
+   str_detect(address_line2, c("LINO|7525")) & oid_tag=="YES"~ "LINO LAKES",
+   str_detect(address_line3, c("LINO|7525")) & oid_tag=="YES"~ "LINO LAKES",
+   str_detect(address_line4, c("LINO|7525")) & oid_tag=="YES"~ "LINO LAKES",
+   str_detect(address_line1, c("WILLOW|86032")) & oid_tag=="YES"~ "WILLOW",
+   str_detect(address_line2, c("WILLOW|86032")) & oid_tag=="YES"~ "WILLOW",
+   str_detect(address_line3, c("WILLOW|86032")) & oid_tag=="YES"~ "WILLOW",
+   str_detect(address_line4, c("WILLOW|86032")) & oid_tag=="YES"~ "WILLOW",
+   str_detect(address_line1, c("RED|WING|1079")) & oid_tag=="YES"~ "RED WING",
+   str_detect(address_line2, c("RED|WING|1079")) & oid_tag=="YES"~ "RED WING",
+   str_detect(address_line3, c("RED|WING|1079")) & oid_tag=="YES"~ "RED WING",
+   str_detect(address_line4, c("RED|WING|1079")) & oid_tag=="YES"~ "RED WING",
+   str_detect(address_line1, c("MCF|MCF-|MN CORR|MINNESOTA CORR")) & oid_tag=="YES"~ "OTHER",
+   str_detect(address_line2, c("MCF|MCF-|MN CORR|MINNESOTA CORR")) & oid_tag=="YES"~ "OTHER",
+   str_detect(address_line3, c("MCF|MCF-|MN CORR|MINNESOTA CORR")) & oid_tag=="YES"~ "OTHER",
+   str_detect(address_line4, c("MCF|MCF-|MN CORR|MINNESOTA CORR")) & oid_tag=="YES"~ "OTHER",
+   oid_tag=="YES" & address_state=="MN" & 
+    !str_detect(address_line1, pattern = "MCF|MCF-|MN CORR|MINNESOTA CORR|STILL|970|PICKETT|RUSH|7600|FARI|FAIR|LINDEN|1101|SHAK|1101|OAK|OSGOOD|5329|CLOUD|2305|MINNESOTA B|MOOSE|SHORE|TOGO|6271|LINO|7525|WILLOW|86032|RED|WING|1079") ~ "OTHER",
+   oid_tag=="YES" & address_state=="MN" & 
+    !str_detect(address_line2, pattern = "MCF|MCF-|MN CORR|MINNESOTA CORR|STILL|970|PICKETT|RUSH|7600|FARI|FAIR|LINDEN|1101|SHAK|1101|OAK|OSGOOD|5329|CLOUD|2305|MINNESOTA B|MOOSE|SHORE|TOGO|6271|LINO|7525|WILLOW|86032|RED|WING|1079") ~ "OTHER", 
+  oid_tag=="YES" & address_state=="MN" & 
+    !str_detect(address_line3, pattern = "MCF|MCF-|MN CORR|MINNESOTA CORR|STILL|970|PICKETT|RUSH|7600|FARI|FAIR|LINDEN|1101|SHAK|1101|OAK|OSGOOD|5329|CLOUD|2305|MINNESOTA B|MOOSE|SHORE|TOGO|6271|LINO|7525|WILLOW|86032|RED|WING|1079") ~ "OTHER", 
+  oid_tag=="YES" & address_state=="MN" & 
+    !str_detect(address_line4, pattern = "MCF|MCF-|MN CORR|MINNESOTA CORR|STILL|970|PICKETT|RUSH|7600|FARI|FAIR|LINDEN|1101|SHAK|1101|OAK|OSGOOD|5329|CLOUD|2305|MINNESOTA B|MOOSE|SHORE|TOGO|6271|LINO|7525|WILLOW|86032|RED|WING|1079") ~ "OTHER")) 
+
+#deduplification here
+
+#add in unique person_id (Rob's)
+party.key <- read_csv("C:/Users/rlarson21/Documents/Research/Monetary Sanctions/MonSanc/Misc Data/partymkey_to_personid_bridge.csv",
+                       col_types = list(col_character(), col_double())) %>%
+  mutate(party_mkey = as.numeric(party_mkey))
+
+party.clean <- party.clean %>% 
+  left_join(party.key, by = c("Party_Mkey"="party_mkey")) %>%
+  mutate(Case_Mkey=as.numeric(Case_Mkey))
+
+#keep all unique case_mkeys, match to case_level
+party.clean <- party.clean %>% 
+  distinct(Case_Mkey, .keep_all = T)
+  #effectively drops second individual on multi individual case (number above)
+
+#filters
+monsanc <- monsanc %>% 
+  left_join(party.clean, by = "Case_Mkey") %>%
+  filter(business_flag!="Yes" | is.na(business_flag)) %>%
+  filter(other_remove_flag!="Yes" | is.na(other_remove_flag)) %>%
+  select(-business_flag, -other_remove_flag) %>%
+  mutate(sentence_year = format(Sentence_Date, "%Y")) %>%
+  filter(sentence_year >= 2004 & sentence_year <= 2018) 
+
+rm(party, address.replace, business, oid, oid.fix, other.remove, 
+   address.process, city.process, name.process, zip.process, party.key)
+
+#race imputation
+
+#custom mode function that randomly selects a mode in cases with multiple modes
+get_mode <- function(x, na.rm = FALSE) {
+  if(na.rm==TRUE){
+    x <- x[!is.na(x)]
+  }
+  ux <- unique(x)
+  tab <- tabulate(match(x, ux))
+  mode <- ux[tab == max(tab)]
+  if(length(mode > 1)){
+    mode <- sample(mode, 1)
+  }
+  return(mode)
+}
+
+monsanc <- monsanc %>% 
+  mutate(race.miss = case_when(race=="White"~"white",race=="Asian"~"asian",
+    race=="Black"~"black",race=="HawaiianPacific"~"other",race=="Hispanic"~"hispanic",
+    race=="Indian"~"nat. am.",race=="Multiracial"~"other",race=="Other"~"other",
+    race=="Refused"~NA_character_,race=="Unavailable"~NA_character_,race=="Unknown"~NA_character_)) %>%
+  group_by(person_id) %>%
+  mutate(race_impute = replace(race.miss, is.na(race.miss), get_mode(race.miss, na.rm = T))) %>%
+  select(-race.miss) %>%
+  arrange(person_id, Case_Mkey)
+  
+monsanc <- monsanc %>% 
+  group_by(person_id) %>%
+  mutate(gender_impute = replace(gender, is.na(gender), get_mode(gender, na.rm = T))) %>%
+  arrange(person_id, Case_Mkey)
+
+write_csv(monsanc, "C:/Users/rlarson21/Documents/Research/Monetary Sanctions/MonSanc/Data Build/monsanc_party.csv")
+```
+
+```{r}
+#trial indicator: case_events file - verdict, found (not) guilty by jury or court
+  #variable is case_event_type_description
+
+#trial indicator - went to trial for atleast one of the charges within case_mkey
+case.event <- read_delim("C:/Users/rlarson21/Documents/Research/Monetary Sanctions/MonSanc/Original Data/Case_Event.txt", delim = "|", 
+                         na = "NULL", 
+                         trim_ws = T) %>%
+  slice(-dim(.)[1])
+  
+trial <- case.event %>% 
+  select(Case_Mkey, Case_Event_Type_Desc) %>%
+  mutate(trial_flag = case_when(
+    str_detect(Case_Event_Type_Desc, 
+    pattern = "Found Guilty by Court|Found Guilty by Jury|
+               Found Not Guilty by Court|Found Not Guilty by Jury") ~ "yes",
+    TRUE ~ "no")) %>%
+  group_by(Case_Mkey) %>%
+  mutate(trial_flag = any(trial_flag=="yes")) %>%
+  select(-Case_Event_Type_Desc) %>%
+  distinct(Case_Mkey, .keep_all = T) %>%
+  mutate(Case_Mkey=as.numeric(Case_Mkey))
+  
+#merge trial indicator to monsanc
+monsanc <- monsanc %>% left_join(trial, by = "Case_Mkey")
+
+rm(case.event, trial, party.clean, get_mode)
+```
+
+```{r, warning=F, echo=T}
+#write/clean monsanc file
+
+#all variable to lowercase and creating priors count and age variables
+monsanc <- monsanc %>% 
+  rename_all(tolower) %>%
+  group_by(person_id) %>% 
+  arrange(person_id, case_filed_date, .by_group=T) %>%
+  mutate(priors = row_number()-1)  %>% ungroup() %>%
+  mutate(priors = ifelse(is.na(person_id), NA, priors)) %>%
+  mutate(birth_year = as.numeric(format(birth_date, "%Y")),
+         age = as.numeric(file_year)-birth_year,
+          age_cat = case_when(
+           age < 18 ~ "<18", 
+           age>=18 & age<=25 ~ "18-25",
+           age>=26 & age<=45 ~ "26-45",
+           age>=46 & age<=64 ~ "46-64",
+           age>=65  ~ "65+")) 
+
+#adding inflation factors (Jan 2018)
+year <- as.character(seq(from = 2004, to = 2018, by = 1))
+adj <- c(1.34, 1.30, 1.25, 1.22, 1.17, 1.17, 1.14, 1.13, 1.09, 1.08, 1.06, 1.06, 1.05, 1.02, 1)
+jan18adj <- data.frame(cbind(year, adj), stringsAsFactors = F) %>%
+  mutate(adj = as.numeric(adj), 
+         year = as.numeric(year)) 
+
+monsanc <- monsanc %>% 
+  mutate(sentence_year = as.numeric(sentence_year)) %>%
+  left_join(jan18adj, by = c("sentence_year"="year"))
+
+
+#joining to level-2 covariates - ASR Replication
+county_level <- read_csv("C:/Users/rlarson21/Documents/Research/Monetary Sanctions/MonSanc/Misc Data/county_level_covariates.csv") 
+
+monsanc <- monsanc %>% 
+  left_join(county_level, by=c("filed_county"="county"))
+
+#writing over charge_offense with Rob's imputation
+charge.impute <- read_csv("C:/Users/rlarson21/Documents/Research/Monetary Sanctions/MonSanc/Misc Data/max_charge_level.csv") %>% 
+  mutate(case_mkey = as.numeric(case_mkey))
+
+monsanc <- monsanc %>% select(-charge_degree)
+
+monsanc <- monsanc %>% left_join(charge.impute, by = "case_mkey") %>% 
+  rename(charge_degree = max_charge_level) %>%
+  mutate(charge_degree = ifelse(charge_degree=="No Level"|charge_degree=="Unknown", NA, charge_degree))
+
+rm(charge.impute)
+
+#merge in spatial intersection flags
+int <- read_csv("C:/Users/rlarson21/Documents/Research/Monetary Sanctions/MonSanc/Misc Data/intersect.csv") %>% 
+  mutate(county = paste(county, "County"), 
+         county = str_replace_all(county, "Le Sueur County", "LeSueur County")) %>% 
+  select(-`...1`)
+
+monsanc <- monsanc %>% left_join(int, by=c("filed_county"="county"))
+
+rm(int, jan18adj, county_level, adj, year)
+
+write_csv(monsanc, "C:/Users/rlarson21/Documents/Research/Monetary Sanctions/MonSanc/Data Build/monsanc.csv")
+```
